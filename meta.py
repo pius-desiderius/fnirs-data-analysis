@@ -106,4 +106,5 @@ topo_hbo_path = r"C:\Users\Admin\Desktop\topomaps_hbo",
 topo_hbo_path_np = r"C:\Users\Admin\Desktop\topomaps_hbo_np",
 topo_hbr_path = r"C:\Users\Admin\Desktop\topomaps_hbr",
 topo_hbr_path_np = r"C:\Users\Admin\Desktop\topomaps_hbr_np",
+epochs_structure_path = r"C:\Users\Admin\Desktop\epochs_structure",
 )

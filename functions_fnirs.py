@@ -58,26 +58,27 @@ def clean_epochs(raw_haemo, events, ids, tmin=-0.2, tmax=14, baseline=(-0.2, 0.0
                             # picks=picks
                         )
 
-        rest_epochs_raw = epochs["Rest"]
-        smr_epochs_raw = epochs["Sensorimotor"]
+        # rest_epochs_raw = epochs["Rest"]
+        # smr_epochs_raw = epochs["Sensorimotor"]
 
-        info = smr_epochs_raw.info
-        chans = mne.io.pick.channel_indices_by_type(info)
-        info_hbo = mne.pick_info(info,chans['hbo'])
-        info_hbr = mne.pick_info(info,chans['hbr'])
-        hbo_chnames = info_hbo.ch_names
-        hbr_chanames = info_hbr.ch_names
+        info = epochs.info
+        # chans = mne.io.pick.channel_indices_by_type(info)
+        # info_hbo = mne.pick_info(info,chans['hbo'])
+        # info_hbr = mne.pick_info(info,chans['hbr'])
+        # hbo_chnames = info_hbo.ch_names
+        # hbr_chanames = info_hbr.ch_names
 
-        smr_reject_bool = epochs_rejector(smr_epochs_raw, lower=0.2, upper=1.0, time_limits = (5, 13))
-        rest_reject_bool = epochs_rejector(rest_epochs_raw, lower=0.0, upper=0.80, time_limits = (5, 13))
+        # smr_reject_bool = epochs_rejector(smr_epochs_raw, lower=0.2, upper=1.0, time_limits = (5, 13))
+        # rest_reject_bool = epochs_rejector(rest_epochs_raw, lower=0.0, upper=0.80, time_limits = (5, 13))
+        # smr_epochs = smr_epochs
+        # rest_epochs = smr_epochs
 
-        smr_epochs = smr_epochs_raw.drop(smr_reject_bool)
-        rest_epochs = rest_epochs_raw.drop(rest_reject_bool)
+        # smr_epochs = smr_epochs_raw.drop(smr_reject_bool)
+        # rest_epochs = rest_epochs_raw.drop(rest_reject_bool)
 
-        evoked_smr = smr_epochs.average()
-        evoked_rest = rest_epochs.average()
-
-        return smr_epochs, rest_epochs, evoked_smr, evoked_rest
+        # return smr_epochs, rest_epochs, evoked_smr, evoked_rest
+    
+        return epochs
 
 
 
@@ -177,3 +178,29 @@ def topomaps_plotter(haemo_picks, smr_epochs, rest_epochs, CONDITION, SUBJECT):
             topo_rest_np = np.save(rf'{dirs_to_save_stuff["topo_hbr_path_np"]}\{SUBJECT} {CONDITION}_rest {haemo_picks} np topo.npy', rest_evoked.get_data())
             fig.savefig(rf'{dirs_to_save_stuff["topo_hbr_path"]}\{SUBJECT} {CONDITION} timeline.png', bbox_inches='tight') #this is a figure for our hemodynamic curves for epochs and haemo types
             fig.clear()
+            
+def epochs_structure(epochs, SUBJECT, CONDITION):
+    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(15, 6))
+    epochs['Sensorimotor'].plot_image(combine='mean', vmin=-15, vmax=15,
+                             ts_args=dict(ylim=dict(hbo=[-15, 15],
+                                                    hbr=[-15, 15])),
+                                                    axes=axes,
+                                                    evoked=True, 
+                                                    colorbar=True,
+                                                    picks = C3_chans_of_interest_hbo,
+                                                    show=False)
+    fig.savefig(rf'{dirs_to_save_stuff["epochs_structure_path"]}\{SUBJECT} {CONDITION} SMR epochs.png', bbox_inches='tight') #this is a figure for our hemodynamic curves for epochs and haemo types
+    fig.clear()
+    
+    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(15, 6))
+    epochs['Rest'].plot_image(combine='mean', vmin=-15, vmax=15,
+                             ts_args=dict(ylim=dict(hbo=[-15, 15],
+                                                    hbr=[-15, 15])),
+                                                    axes=axes,
+                                                    evoked=True, 
+                                                    colorbar=True, 
+                                                    picks = C3_chans_of_interest_hbo,
+                                                    show=False)
+
+    fig.savefig(rf'{dirs_to_save_stuff["epochs_structure_path"]}\{SUBJECT} {CONDITION} Rest epochs.png', bbox_inches='tight') #this is a figure for our hemodynamic curves for epochs and haemo types
+    fig.clear()

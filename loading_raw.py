@@ -54,7 +54,6 @@ def get_raw_haemo(filename):
     bad_sci = list(compress(raw_od.ch_names, sci < 0.6))
     bad_sci = [i.replace('760', 'hbr') for i in bad_sci]
     bad_sci = [i.replace('850', 'hbr') for i in bad_sci]
-    sfreq=sfreq
     raw_od.resample(sfreq)
     raw_od = temporal_derivative_distribution_repair(raw_od) #repairs movement artifacts
     
