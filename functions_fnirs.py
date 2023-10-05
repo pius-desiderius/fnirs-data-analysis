@@ -39,7 +39,7 @@ def fast_scanfiles_subjfiles(dirname, contains=None):
         subfiles.extend(fast_scanfiles(dirs, contains=contains))
     return subfiles
 
-def clean_epochs(raw_haemo, events, ids, tmin=0, tmax=14):
+def clean_epochs(raw_haemo, events, ids, tmin=-0.2, tmax=14, baseline=(-0.2, 0.0)):
         '''This functions takes raw_haemo recording, events and ids, 
         splits them into epochs according to events timings and ids. 
         There is and inside function epoch_rejector, which recjects top and low 10% of
@@ -50,7 +50,7 @@ def clean_epochs(raw_haemo, events, ids, tmin=0, tmax=14):
                             raw_haemo,
                             events,
                             event_id=ids,
-                            baseline=None,
+                            baseline=baseline,
                             tmin=tmin,
                             tmax=tmax,
                             preload=True,
@@ -68,8 +68,8 @@ def clean_epochs(raw_haemo, events, ids, tmin=0, tmax=14):
         hbo_chnames = info_hbo.ch_names
         hbr_chanames = info_hbr.ch_names
 
-        smr_reject_bool = epochs_rejector(smr_epochs_raw)
-        rest_reject_bool = epochs_rejector(rest_epochs_raw)
+        smr_reject_bool = epochs_rejector(smr_epochs_raw, lower=0.2, upper=1.0, time_limits = (5, 13))
+        rest_reject_bool = epochs_rejector(rest_epochs_raw, lower=0.0, upper=0.80, time_limits = (4, 12))
 
         smr_epochs = smr_epochs_raw.drop(smr_reject_bool)
         rest_epochs = rest_epochs_raw.drop(rest_reject_bool)
@@ -81,9 +81,11 @@ def clean_epochs(raw_haemo, events, ids, tmin=0, tmax=14):
 
 
 
-def epochs_rejector(epochs, criterion='median', 
+def epochs_rejector(epochs, criterion='median',
+                    sfreq=5, 
                     time_limits = (4, 12),
                     lower=0.10, upper=0.90):
+    time_limits = (time_limits[0]*sfreq, time_limits[1]*sfreq)
     epochs.copy().pick_channels(C3_chans_of_interest_hbo)
     epochs_data = epochs.get_data()[:, :, time_limits[0]:time_limits[1]]
 
@@ -105,7 +107,7 @@ def epochs_rejector(epochs, criterion='median',
 
 
 def topomaps_plotter(haemo_picks, smr_epochs, rest_epochs, CONDITION, SUBJECT):
-        times = np.arange(2, 14, 2)
+        times = np.arange(2*sfreq, 14*sfreq, 2*sfreq)
         haemo_picks = haemo_picks
 
         if haemo_picks=='hbo':
@@ -175,9 +177,3 @@ def topomaps_plotter(haemo_picks, smr_epochs, rest_epochs, CONDITION, SUBJECT):
             topo_rest_np = np.save(rf'{dirs_to_save_stuff["topo_hbr_path_np"]}\{SUBJECT} {CONDITION}_rest {haemo_picks} np topo.npy', rest_evoked.get_data())
             fig.savefig(rf'{dirs_to_save_stuff["topo_hbr_path"]}\{SUBJECT} {CONDITION} timeline.png', bbox_inches='tight') #this is a figure for our hemodynamic curves for epochs and haemo types
             fig.clear()
-        
-        
-if __name__ == '__main__':
-    # fast_scandir(r"C:\Users\Admin\Desktop\IMAGERY-FNIRS")
-    print(fast_scanfiles(r"C:\Users\Admin\Desktop\IMAGERY-FNIRS", contains='nirs'))
-    print(fast_scanfiles_subjfiles(r"C:\Users\Admin\Desktop\IMAGERY-FNIRS", contains='snirf'))

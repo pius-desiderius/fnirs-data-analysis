@@ -33,7 +33,7 @@ recordings_names = sorted([i for i in subfolders if '_' in i and '.' not in i])
 for items in dirs_to_save_stuff.values():
     os.makedirs(items, exist_ok=True)
 
-filename = recordings_names[1]
+print(recordings_names)
 
 #########################################################
 for filename in recordings_names:
@@ -75,18 +75,22 @@ for filename in recordings_names:
     bad_sci = list(compress(raw_od.ch_names, sci < 0.6))
     bad_sci = [i.replace('760', 'hbr') for i in bad_sci]
     bad_sci = [i.replace('850', 'hbr') for i in bad_sci]
-    raw_od.resample(1.0)
+    sfreq=sfreq
+    raw_od.resample(sfreq)
     raw_od = temporal_derivative_distribution_repair(raw_od) #repairs movement artifacts
     
-    raw_haemo = mne.preprocessing.nirs.beer_lambert_law(raw_od, ppf=0.1) #from wavelength to HbO\HbR
-    # low_f_border, high_f_border = 0.05, 0.1
     low_f_border, high_f_border = 0.05, 0.1
+    # low_f_border, high_f_border = 0.05, 0.1
     # h_trans_bandwidth, l_trans_bandwidth = 0.2, 0.015
-
-    raw_haemo = raw_haemo.filter(low_f_border, high_f_border,
+    
+    raw_od = raw_od.filter(low_f_border, high_f_border,
+                                 method='fir',
+                                 fir_design='firwin',
                                 # h_trans_bandwidth=h_trans_bandwidth,
                                 # l_trans_bandwidth=l_trans_bandwidth, 
                                 n_jobs=-1)
+    
+    raw_haemo = mne.preprocessing.nirs.beer_lambert_law(raw_od, ppf=0.1) #from wavelength to HbO\HbR
     raw_haemo = mne_nirs.signal_enhancement.enhance_negative_correlation(raw_haemo)
 
     channel_std = np.std(raw_haemo.get_data(), axis=(1))
@@ -123,7 +127,7 @@ for filename in recordings_names:
     for i in ids_to_pop:
         popper(ids, i)
 
-    smr_epochs, rest_epochs, _, _ = clean_epochs(raw_haemo, events=events, ids=ids)
+    smr_epochs, rest_epochs, _, _ = clean_epochs(raw_haemo, events=events, ids=ids, tmin=0, tmax=14, baseline=None)
     
     #you can set condition and subject by hand or get it from file's name
     picks_hbo_left, picks_hbr_left = C3_chans_of_interest_hbo, C3_chans_of_interest_hbr
@@ -138,14 +142,14 @@ for filename in recordings_names:
     #top channel plotting
     smr_evoked_left = smr_epochs_left.copy().average(picks=picks_hbo_left)
     data_smr = smr_evoked_left.get_data()
-    mode = st.mode(np.argmax(data_smr, axis=0)[5:12])[0][0]
+    mode = st.mode(np.argmax(data_smr, axis=0)[5*sfreq:12*sfreq])[0][0]
     top_channel_C3_hbo = smr_evoked_left.ch_names[mode]
     top_channel_C3_hbr = [top_channel_C3_hbo.replace('o', 'r'),]
     top_channel_C3_hbo = [top_channel_C3_hbo, ]
 
     smr_evoked_right = smr_epochs_right.copy().average(picks=picks_hbo_right)
     data_smr = smr_evoked_right.get_data()
-    mode = st.mode(np.argmax(data_smr, axis=0)[5:12])[0][0]
+    mode = st.mode(np.argmax(data_smr, axis=0)[5*sfreq:12*sfreq])[0][0]
     top_channel_C4_hbo = smr_evoked_right.ch_names[mode]
     top_channel_C4_hbr = [top_channel_C4_hbo.replace('o', 'r'),]
     top_channel_C4_hbo = [top_channel_C4_hbo, ]
@@ -179,14 +183,14 @@ for filename in recordings_names:
     b_right = evoked_dict_right[f'{CONDITION}/HbR'].get_data()
     c_right = evoked_dict_right['Rest/HbO'].get_data()
     d_right = evoked_dict_right['Rest/HbR'].get_data()
-    right_np_array = np.mean(np.stack(arrays=[a_right, b_right, c_right, d_right]), axis=1).reshape(4, 1, 15)
+    right_np_array = np.mean(np.stack(arrays=[a_right, b_right, c_right, d_right]), axis=1).reshape(4, 1, 15*sfreq)
     np.save(rf'{dirs_to_save_stuff["haemo_folder_path_np"]}\{SUBJECT} {CONDITION} right.npy', right_np_array)
     
     a_left= evoked_dict_left[f'{CONDITION}/HbO'].get_data()
     b_left= evoked_dict_left[f'{CONDITION}/HbR'].get_data()
     c_left= evoked_dict_left['Rest/HbO'].get_data()
     d_left= evoked_dict_left['Rest/HbR'].get_data()
-    left_np_array = np.mean(np.stack(arrays=[a_left, b_left, c_left, d_left]), axis=1).reshape(4, 1, 15)
+    left_np_array = np.mean(np.stack(arrays=[a_left, b_left, c_left, d_left]), axis=1).reshape(4, 1, 15*sfreq)
     np.save(rf'{dirs_to_save_stuff["haemo_folder_path_np"]}\{SUBJECT} {CONDITION} left.npy', left_np_array)
 
 

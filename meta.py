@@ -1,3 +1,5 @@
+sfreq = 1
+
 
 
 C3 = ['C5', 'C1', 'CCP5h', 'CCP3h']
