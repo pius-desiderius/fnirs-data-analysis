@@ -69,7 +69,7 @@ def clean_epochs(raw_haemo, events, ids, tmin=-0.2, tmax=14, baseline=(-0.2, 0.0
         hbr_chanames = info_hbr.ch_names
 
         smr_reject_bool = epochs_rejector(smr_epochs_raw, lower=0.2, upper=1.0, time_limits = (5, 13))
-        rest_reject_bool = epochs_rejector(rest_epochs_raw, lower=0.0, upper=0.80, time_limits = (4, 12))
+        rest_reject_bool = epochs_rejector(rest_epochs_raw, lower=0.0, upper=0.80, time_limits = (5, 13))
 
         smr_epochs = smr_epochs_raw.drop(smr_reject_bool)
         rest_epochs = rest_epochs_raw.drop(rest_reject_bool)
@@ -107,7 +107,7 @@ def epochs_rejector(epochs, criterion='median',
 
 
 def topomaps_plotter(haemo_picks, smr_epochs, rest_epochs, CONDITION, SUBJECT):
-        times = np.arange(2*sfreq, 14*sfreq, 2*sfreq)
+        times = np.arange(2, 14, 2)
         haemo_picks = haemo_picks
 
         if haemo_picks=='hbo':

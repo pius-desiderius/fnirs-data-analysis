@@ -21,6 +21,7 @@ from functions_fnirs import (fast_scandir,
                              topomaps_plotter, 
                              clean_epochs)
 from meta import *
+from loading_raw import get_raw_haemo
 
 start = time.time()
 logging.basicConfig(filename="log_one_channel.txt", format="%(asctime)s %(message)s", filemode="w", level=logging.INFO)
@@ -42,75 +43,12 @@ for filename in recordings_names:
     CONDITION = filename.split(splitting_slash)[-1].split('_')[-1]
     SUBJECT = filename.split(splitting_slash)[-1].split('_')[0]
     
-    raw_intensity = mne.io.read_raw_nirx(
-        filename,
-        verbose=True
-    )
-    raw_od = mne.preprocessing.nirs.optical_density(raw_intensity) #from row wavelength data
-    
-    try:
-        raw_od_shorts = mne_nirs.channels.get_short_channels(raw_od)
-        sci_shorts = scalp_coupling_index( 
-                                    raw_od_shorts, 
-                                    h_freq=1.35, 
-                                    h_trans_bandwidth=0.1
-                                    )
-        bad_sci_shorts = list(compress(raw_od_shorts.ch_names, sci_shorts < 0.6))
-        raw_od.drop_channels(bad_sci_shorts)
-        raw_od = mne_nirs.signal_enhancement.short_channel_regression(raw_od)
-
-    except ValueError:
-        pass
-    
-    try:
-       raw_od.drop_channels(special_drop_chans)
-    except:
-        pass
-    
-    raw_od.drop_channels(drop_chans) #we had a non-existent channel
-    raw_od = mne_nirs.channels.get_long_channels(raw_od)
-    sci = scalp_coupling_index( 
-                            raw_od, 
-                            )
-    bad_sci = list(compress(raw_od.ch_names, sci < 0.6))
-    bad_sci = [i.replace('760', 'hbr') for i in bad_sci]
-    bad_sci = [i.replace('850', 'hbr') for i in bad_sci]
-    sfreq=sfreq
-    raw_od.resample(sfreq)
-    raw_od = temporal_derivative_distribution_repair(raw_od) #repairs movement artifacts
-    
-    low_f_border, high_f_border = 0.05, 0.1
-    # low_f_border, high_f_border = 0.05, 0.1
-    # h_trans_bandwidth, l_trans_bandwidth = 0.2, 0.015
-    
-    raw_od = raw_od.filter(low_f_border, high_f_border,
-                                 method='fir',
-                                 fir_design='firwin',
-                                # h_trans_bandwidth=h_trans_bandwidth,
-                                # l_trans_bandwidth=l_trans_bandwidth, 
-                                n_jobs=-1)
-    
-    raw_haemo = mne.preprocessing.nirs.beer_lambert_law(raw_od, ppf=0.1) #from wavelength to HbO\HbR
-    raw_haemo = mne_nirs.signal_enhancement.enhance_negative_correlation(raw_haemo)
-
-    channel_std = np.std(raw_haemo.get_data(), axis=(1))
-    threshold = 1.3*10**-5
-    
-    outlier_channels = list(np.where(channel_std > threshold)[0])
-    channels_to_fix = [raw_haemo.ch_names[i] for i in outlier_channels]
-    channels_to_interpolate_hbr = list(set([i.replace('hbo', 'hbr') 
-                                            for i in channels_to_fix] + bad_sci))
-    
-    channels_to_interpolate_hbo = [i.replace('hbr', 'hbo') for i in channels_to_interpolate_hbr]
-    channels_to_interpolate = channels_to_interpolate_hbr + channels_to_interpolate_hbo
-    print(channels_to_interpolate, '\n', len(channels_to_interpolate))
-    raw_haemo.info['bads'] = channels_to_interpolate
+    raw_haemo = get_raw_haemo(filename)
     
     # with open(r"C:\Users\Admin\Desktop\logs.txt", 'w') as f:
     #     f.writelines(f'{SUBJECT} {CONDITION} rejected channels: {len(channels_to_interpolate)}\n{channels_to_interpolate}\n')
     logging.info(f'{SUBJECT} {CONDITION} interpolated channels N={len(channels_to_interpolate)}: {channels_to_interpolate}')
     
-    raw_haemo = raw_haemo.interpolate_bads()
     chnames = raw_haemo.ch_names
     
     events, ids = mne.events_from_annotations(raw_haemo)
@@ -127,7 +65,7 @@ for filename in recordings_names:
     for i in ids_to_pop:
         popper(ids, i)
 
-    smr_epochs, rest_epochs, _, _ = clean_epochs(raw_haemo, events=events, ids=ids, tmin=0, tmax=14, baseline=None)
+    smr_epochs, rest_epochs, _, _ = clean_epochs(raw_haemo, events=events, ids=ids, tmin=-0.5, tmax=14, baseline=(-0.5, 0.5))
     
     #you can set condition and subject by hand or get it from file's name
     picks_hbo_left, picks_hbr_left = C3_chans_of_interest_hbo, C3_chans_of_interest_hbr
@@ -183,14 +121,14 @@ for filename in recordings_names:
     b_right = evoked_dict_right[f'{CONDITION}/HbR'].get_data()
     c_right = evoked_dict_right['Rest/HbO'].get_data()
     d_right = evoked_dict_right['Rest/HbR'].get_data()
-    right_np_array = np.mean(np.stack(arrays=[a_right, b_right, c_right, d_right]), axis=1).reshape(4, 1, 15*sfreq)
+    right_np_array = np.mean(np.stack(arrays=[a_right, b_right, c_right, d_right]), axis=1).reshape(4, 1, a_right.shape[1])
     np.save(rf'{dirs_to_save_stuff["haemo_folder_path_np"]}\{SUBJECT} {CONDITION} right.npy', right_np_array)
     
     a_left= evoked_dict_left[f'{CONDITION}/HbO'].get_data()
     b_left= evoked_dict_left[f'{CONDITION}/HbR'].get_data()
     c_left= evoked_dict_left['Rest/HbO'].get_data()
     d_left= evoked_dict_left['Rest/HbR'].get_data()
-    left_np_array = np.mean(np.stack(arrays=[a_left, b_left, c_left, d_left]), axis=1).reshape(4, 1, 15*sfreq)
+    left_np_array = np.mean(np.stack(arrays=[a_left, b_left, c_left, d_left]), axis=1).reshape(4, 1, a_left.shape[1])
     np.save(rf'{dirs_to_save_stuff["haemo_folder_path_np"]}\{SUBJECT} {CONDITION} left.npy', left_np_array)
 
 

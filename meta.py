@@ -1,4 +1,4 @@
-sfreq = 1
+sfreq = 2
 
 
 
