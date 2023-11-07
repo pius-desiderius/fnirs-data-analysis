@@ -1,5 +1,70 @@
-sfreq = 2
+#DEFINE SAMPLING RATE
+SFREQ = 1
 
+#DEFINE EPOCHS LIMITS
+TMIN = float(0.0)
+TMAX = float(14.0)
+
+#DEFINE EPOCHS LABELS
+EPOCHS_LABEL_REST = 'REST'
+EPOCHS_LABEL_SMR = 'SMR'
+
+#DEFINE IDS TO POP
+IDS_TO_POP = ["2.0", "33.0", "1.0", "2", "1", "33"]
+
+#DEFINE BASELINE
+BASELINE = (0, 0)
+
+#DEFINE EPOCHS DROPPING PARAMETERS
+SMR_LOWER_QUANTILE, SMR_UPPER_QUANTILE = 0.05, 0.95
+REST_LOWER_QUANTILE, REST_UPPER_QUANTILE = 0.05, 0.95
+
+#DEFINE FAULTY CHANNELS TO DROP 
+CHANNELS_TO_DROP = []
+SPECIAL_CHANNELS_TO_DROP = []
+
+#DEFINE ROI FOR LEFT HEMISPHERE
+RIGHT_ROI_CHANNELS = ['S9_D18 760',
+  'S9_D18 850',
+  'S13_D18 760',
+  'S13_D18 850',
+  'S15_D18 760',
+  'S15_D18 850',
+  'S16_D13 760',
+  'S16_D13 850',
+  'S16_D16 760',
+  'S16_D16 850',
+  'S16_D18 760',
+  'S16_D18 850',
+  'S16_D19 760',
+  'S16_D19 850',
+  'S16_D23 760',
+  'S16_D23 850',
+  'S19_D18 760',
+  'S19_D18 850',
+  'S20_D18 760',
+  'S20_D18 850',
+  'S20_D36 760',
+  'S20_D36 850',
+  'S23_D18 760',
+  'S23_D18 850',
+  'S24_D19 760',
+  'S24_D19 850']
+
+#DEFINE ROI FOR RIGHT HEMISPHERE
+LEFT_ROI_CHANNELS = []
+
+
+#DEFINE PATHNAMES FOR DIRECTORIES
+DIRS_TO_SAVE_STUFF = dict(
+                            haemo_folder_path = r"./haemodynamics",
+                            haemo_folder_path_np = r"./haemodynamics_np",
+                            topo_hbo_path = r"./topomaps_hbo",
+                            topo_hbo_path_np = r"./topomaps_hbo_np",
+                            topo_hbr_path = r"./topomaps_hbr",
+                            topo_hbr_path_np = r"./topomaps_hbr_np",
+                            epochs_structure_path = r"./epochs_structure",
+)
 
 
 C3 = ['C5', 'C1', 'CCP5h', 'CCP3h']
@@ -71,7 +136,10 @@ C4_chans_of_interest_hbo =  ['S11_D14 hbo',
 'S25_D20 hbo']
 C4_chans_of_interest_hbr = [i.replace('hbo', 'hbr') for i in C4_chans_of_interest_hbo]
 
-drop_chans = ['S2_D4 760',
+DROP_CHANS = [
+ 'S2_D4 760',
+ 'S2_D4 850',
+
  'S2_D1 760',
  'S2_D3 760',
  'S3_D1 760',
@@ -82,7 +150,6 @@ drop_chans = ['S2_D4 760',
  'S29_D28 760',
  'S32_D28 760',
  'S32_D31 760',
- 'S2_D4 850',
  'S2_D1 850',
  'S2_D3 850',
  'S3_D1 850',
@@ -92,19 +159,11 @@ drop_chans = ['S2_D4 760',
  'S28_D27 850',
  'S29_D28 850',
  'S32_D28 850',
- 'S32_D31 850']
+ 'S32_D31 850'
+ ]
 
-special_drop_chans = ['S31_D32 760',
+SPECIAL_DROP_CHANS = ['S31_D32 760',
                       'S32_D32 760',
                       'S31_D32 850',
                       'S32_D32 850',
                       ]
-
-dirs_to_save_stuff = dict(haemo_folder_path = r"C:\Users\Admin\Desktop\haemodynamics",
-haemo_folder_path_np = r"C:\Users\Admin\Desktop\haemodynamics_np",
-topo_hbo_path = r"C:\Users\Admin\Desktop\topomaps_hbo",
-topo_hbo_path_np = r"C:\Users\Admin\Desktop\topomaps_hbo_np",
-topo_hbr_path = r"C:\Users\Admin\Desktop\topomaps_hbr",
-topo_hbr_path_np = r"C:\Users\Admin\Desktop\topomaps_hbr_np",
-epochs_structure_path = r"C:\Users\Admin\Desktop\epochs_structure",
-)

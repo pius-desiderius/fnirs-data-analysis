@@ -89,7 +89,7 @@ def averaged_array(arrays):
 
 
 if __name__ == '__main__':
-    pathname = dirs_to_save_stuff['topo_hbo_path_np']
+    pathname = DIRS_TO_SAVE_STUFF['topo_hbo_path_np']
 
     files = fast_scanfiles_subjfiles(pathname, contains='MI')
     

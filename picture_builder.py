@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import matplotlib
 import pandas as pd
 from itertools import compress
-from scipy import stats as st
 import time
 import logging
 
@@ -16,61 +15,61 @@ from mne.preprocessing.nirs import optical_density, beer_lambert_law
 from mne.preprocessing.nirs import (optical_density,
                                     temporal_derivative_distribution_repair,
                                     scalp_coupling_index)
-from mne import Epochs, events_from_annotations
-from functions_fnirs import (fast_scandir, 
-                             topomaps_plotter, 
-                             clean_epochs,
-                             epochs_structure)
+from mne import events_from_annotations
+
+from functions_fnirs import *
 from meta import *
-from loading_raw import get_raw_haemo
+from file_scanning import *
 
 start = time.time()
 logging.basicConfig(filename="log_one_channel.txt", format="%(asctime)s %(message)s", filemode="w", level=logging.INFO)
 
-fnirs_dir = r"C:\Users\Admin\Desktop\IMAGERY-FNIRS"
+splitting_slash = '//'
+fnirs_dir = '/mnt/diskus/fNIRS data ME_MI_TS_TI_SA//'
 subfolders = fast_scandir(fnirs_dir)
-subj_names = sorted([(i.split('\\')[-1]) for i in subfolders if len(i.split('\\')[-1])==2])
-recordings_names = sorted([i for i in subfolders if '_' in i and '.' not in i])
-
-for items in dirs_to_save_stuff.values():
-    os.makedirs(items, exist_ok=True)
+subj_names = sorted([(i.split('\\')[-1]) for i in subfolders if len(i.split(splitting_slash)[-1])==2])
+recordings_names = sorted([i for i in subfolders if len(i.split(splitting_slash)[-1])!=2])
 
 print(recordings_names)
+# for items in DIRS_TO_SAVE_STUFF.values():
+#     os.makedirs(items, exist_ok=True)
 
 #########################################################
-for filename in recordings_names:
+for filename in recordings_names[0:2]:
+    print (filename)
 #########################################################
-    splitting_slash = '\\'
     CONDITION = filename.split(splitting_slash)[-1].split('_')[-1]
     SUBJECT = filename.split(splitting_slash)[-1].split('_')[0]
     
+    threshold = 1.3*10**-5
     raw_haemo = get_raw_haemo(filename)
-    
-    # with open(r"C:\Users\Admin\Desktop\logs.txt", 'w') as f:
-    #     f.writelines(f'{SUBJECT} {CONDITION} rejected channels: {len(channels_to_interpolate)}\n{channels_to_interpolate}\n')
     # logging.info(f'{SUBJECT} {CONDITION} interpolated channels N={len(channels_to_interpolate)}: {channels_to_interpolate}')
     
     chnames = raw_haemo.ch_names
+
+    ids_target= 'SMR'
+    ids_rest = 'REST'
     
-    events, ids = mne.events_from_annotations(raw_haemo)
-    ids["Rest"] = 2
-    ids["Sensorimotor"] = 1
+    events, ids = events_from_annotations(raw_haemo)
+    ids[ids_target] = 1
+    ids[ids_rest] = 2
     
-    def popper(ids, ids_key):
-        try:
-            ids.pop(ids_key)
-        except:
-            pass
         
-    ids_to_pop = ["2.0", "33.0", "1.0", "2", "1", "33",]
+    ids_to_pop = IDS_TO_POP
     for i in ids_to_pop:
         popper(ids, i)
 
-    # smr_epochs, rest_epochs, _, _ = clean_epochs(raw_haemo, events=events, ids=ids, tmin=-0.5, tmax=14, baseline=(-0.5, 0.5))
-    epochs = clean_epochs(raw_haemo, events=events, ids=ids, tmin=-0.5, tmax=14, baseline=(-0.5, 0.5))
+    smr_epochs, rest_epochs = clean_epochs( 
+                            raw_haemo, 
+                            events=events, 
+                            ids=ids, 
+                            tmin=TMIN, 
+                            tmax=TMAX, 
+                            baseline=BASELINE 
+                            )
 
     
-    epochs_structure(epochs, SUBJECT=SUBJECT, CONDITION=CONDITION)
+    # epochs_structure(epochs, SUBJECT=SUBJECT, CONDITION=CONDITION)
     
     # #you can set condition and subject by hand or get it from file's name
     # picks_hbo_left, picks_hbr_left = C3_chans_of_interest_hbo, C3_chans_of_interest_hbr

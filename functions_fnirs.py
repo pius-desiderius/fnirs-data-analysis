@@ -1,54 +1,68 @@
-import os.path as op
-import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-import pandas as pd
 from itertools import compress
-from scipy import stats as st
-import time
-
 import mne
 import mne_nirs
 from mne.preprocessing.nirs import optical_density, beer_lambert_law
 
+from mne_nirs.signal_enhancement import enhance_negative_correlation, short_channel_regression
+
 from mne.preprocessing.nirs import (optical_density,
                                     temporal_derivative_distribution_repair,
                                     scalp_coupling_index)
+
 from mne import Epochs, events_from_annotations
 from meta import *
+from filter_params import FILTER_DICT
+from file_scanning import *
 
+def std_channels_rejector(raw_haemo, threshold):
+    channel_std = np.std(raw_haemo.get_data(), axis=(1))
+    threshold = threshold
+    outlier_channels = list(np.where(channel_std > threshold)[0])
+    
+    return outlier_channels
+    
+def get_raw_haemo(filename, threshold=1.3*10**-5):
+    raw_intensity = mne.io.read_raw_nirx(filename, verbose=False)
+    raw_od = optical_density(raw_intensity) #from row wavelength data
 
-def fast_scandir(dirname):
-    subfolders= [f.path for f in os.scandir(dirname) if f.is_dir()]
-    for dirname in list(subfolders):
-        subfolders.extend(fast_scandir(dirname))
-    return subfolders
+    raw_od_shorts = mne_nirs.channels.get_short_channels(raw_od)
+    sci_shorts = scalp_coupling_index(raw_od_shorts)
+    bad_sci_shorts = list(compress(raw_od_shorts.ch_names, sci_shorts < 0.75))
+    raw_od.drop_channels(bad_sci_shorts)
+    raw_od.drop_channels(DROP_CHANS) #we had a non-existent channel
 
-def fast_scanfiles(dirname, contains=None):
-    subfiles = [f.path for f in os.scandir(dirname) if f.is_file()]
-    if contains != None:
-        subfiles = [i for i in subfiles if contains in i ]
-    return subfiles
+    raw_od = mne_nirs.signal_enhancement.short_channel_regression(raw_od)
+    raw_od = enhance_negative_correlation(raw_od)
+    raw_od = mne_nirs.channels.get_long_channels(raw_od)
+    raw_od = temporal_derivative_distribution_repair(raw_od) #repairs movement artifacts
 
-def fast_scanfiles_subjfiles(dirname, contains=None):
-    subfolders = fast_scandir(dirname)
-    subfiles = []
-    subfiles.extend(fast_scanfiles(dirname, contains=contains))
-    for dirs in subfolders:
-        subfiles.extend(fast_scanfiles(dirs, contains=contains))
-    return subfiles
+    sci = scalp_coupling_index(raw_od)
+    bad_sci = list(compress(raw_od.ch_names, sci < 0.6))
+    bad_sci = [i.replace('760', 'hbr') for i in bad_sci]
+    bad_sci = [i.replace('850', 'hbr') for i in bad_sci]
 
-def clean_epochs(raw_haemo, events, ids, tmin=-0.2, tmax=14, baseline=(-0.2, 0.0)):
+    channels_to_interpolate = std_channels_rejector(raw_haemo, threshold) + bad_sci
+
+    raw_haemo = beer_lambert_law(raw_od, ppf=0.1) #from wavelength to HbO\HbR
+    raw_haemo = raw_haemo.filter(**FILTER_DICT)
+    print(channels_to_interpolate, '\n', len(channels_to_interpolate))
+    raw_haemo.info['bads'] = channels_to_interpolate
+    raw_haemo = raw_haemo.interpolate_bads()
+
+    return raw_haemo
+
+def clean_epochs(raw_haemo, events, ids, tmin, tmax, baseline, drop_epochs_flag=True):
         '''This functions takes raw_haemo recording, events and ids, 
         splits them into epochs according to events timings and ids. 
         There is and inside function epoch_rejector, which recjects top and low 10% of
         deviant epochs in each epochs' type ''' 
 
-        tmin, tmax = tmin, tmax
         epochs = mne.Epochs(
-                            raw_haemo,
-                            events,
+                            raw=raw_haemo,
+                            events=events,
                             event_id=ids,
                             baseline=baseline,
                             tmin=tmin,
@@ -58,34 +72,34 @@ def clean_epochs(raw_haemo, events, ids, tmin=-0.2, tmax=14, baseline=(-0.2, 0.0
                             # picks=picks
                         )
 
-        # rest_epochs_raw = epochs["Rest"]
-        # smr_epochs_raw = epochs["Sensorimotor"]
+        rest_epochs_raw = epochs['REST']
+        smr_epochs_raw = epochs['SMR']
 
-        info = epochs.info
-        # chans = mne.io.pick.channel_indices_by_type(info)
-        # info_hbo = mne.pick_info(info,chans['hbo'])
-        # info_hbr = mne.pick_info(info,chans['hbr'])
-        # hbo_chnames = info_hbo.ch_names
-        # hbr_chanames = info_hbr.ch_names
+        if drop_epochs_flag:
+            smr_reject_bool = epochs_rejector(smr_epochs_raw, 
+                                              lower=SMR_LOWER_QUANTILE, 
+                                              upper=SMR_UPPER_QUANTILE, 
+                                              time_limits = (5, 13)
+                                              )
+            rest_reject_bool = epochs_rejector(rest_epochs_raw, 
+                                               lower=REST_LOWER_QUANTILE, 
+                                               upper=REST_UPPER_QUANTILE, 
+                                               time_limits = (5, 13)
+                                               )
+            smr_epochs = smr_epochs_raw.drop(smr_reject_bool)
+            rest_epochs = rest_epochs_raw.drop(rest_reject_bool)
+        else:
+            smr_epochs = smr_epochs_raw
+            rest_epochs = rest_epochs_raw
 
-        # smr_reject_bool = epochs_rejector(smr_epochs_raw, lower=0.2, upper=1.0, time_limits = (5, 13))
-        # rest_reject_bool = epochs_rejector(rest_epochs_raw, lower=0.0, upper=0.80, time_limits = (5, 13))
-        # smr_epochs = smr_epochs
-        # rest_epochs = smr_epochs
-
-        # smr_epochs = smr_epochs_raw.drop(smr_reject_bool)
-        # rest_epochs = rest_epochs_raw.drop(rest_reject_bool)
-
-        # return smr_epochs, rest_epochs, evoked_smr, evoked_rest
-    
-        return epochs
-
+        return smr_epochs, rest_epochs
 
 
 def epochs_rejector(epochs, criterion='median',
-                    sfreq=5, 
+                    sfreq=SFREQ, 
                     time_limits = (4, 12),
-                    lower=0.10, upper=0.90):
+                    lower=0.10, upper=0.90): 
+
     time_limits = (time_limits[0]*sfreq, time_limits[1]*sfreq)
     epochs.copy().pick_channels(C3_chans_of_interest_hbo)
     epochs_data = epochs.get_data()[:, :, time_limits[0]:time_limits[1]]
@@ -105,102 +119,14 @@ def epochs_rejector(epochs, criterion='median',
                                     reject_bool_positive)
     return reject_bool
 
+def hbt_total(hbo_arr, hbr_arr):
+    hbt_arr = hbo_arr + hbr_arr
+    return hbt_arr
 
+def oxy_level(hbo_arr, hbr_arr):
+    oxygenation = hbo_arr / hbt_total(hbo_arr, hbr_arr)
+    return oxygenation
 
-def topomaps_plotter(haemo_picks, smr_epochs, rest_epochs, CONDITION, SUBJECT):
-        times = np.arange(2, 14, 2)
-        haemo_picks = haemo_picks
-
-        if haemo_picks=='hbo':
-            topo_haemo = 'HbO'
-        else:
-            topo_haemo = 'HbR'
-
-        topomap_args = dict(extrapolate='local')
-        smr_evoked = smr_epochs.average(picks=haemo_picks)
-        rest_evoked = rest_epochs.average(picks=haemo_picks)
-        vmin = min(smr_evoked.data.min(), rest_evoked.data.min())*10**6
-        vmax = max(smr_evoked.data.max(), rest_evoked.data.max())*10**6
-        vlim = (vmin, vmax)
-        sm = plt.cm.ScalarMappable(cmap='RdBu_r', norm=matplotlib.colors.Normalize(vmin=vmin, vmax=vmax))
-
-        # create a figure to contain both topomap plots
-        fig, axes = plt.subplots(2, len(times), figsize=(14, 7))
-
-        # loop through times and plot the topomaps for smr epochs and rest epochs
-        smr_fig = smr_evoked.plot_topomap(times, axes=axes[0, :],
-                                colorbar=False,
-                                show=False,
-                                **topomap_args)
-        rest_fig = rest_evoked.plot_topomap(times, axes=axes[1, :],
-                                show=False,
-                                colorbar=False,
-                                **topomap_args)
-
-        cbaxes = fig.add_axes([0.095, 0.25, 0.02, 0.5]) # setup colorbar axes. 
-
-        cbar = plt.colorbar(mappable=sm, cax=cbaxes, pad=0.15, orientation='vertical')
-        cbar.set_label(f'{topo_haemo} concentration, Δ μM\L', loc='center', size=12)
-
-        fig.subplots_adjust( 
-                            top=0.910, 
-                            bottom=0.06,
-                            left=0.150, 
-                            right=0.950, 
-                            hspace=0.195, 
-                            wspace=0.0 
-                        )
-
-        x_top, y_top = 0.55, 0.95
-        x_bottom, y_bottom = 0.55, 0.5
-
-        fig.text(
-                x=x_top, y=y_top, 
-                s=f'{CONDITION} {topo_haemo} changes timeline', 
-                fontsize='x-large', 
-                horizontalalignment='center', 
-                verticalalignment='center' 
-                )
-        fig.text( 
-                x=x_bottom, y=y_bottom, 
-                s=f'Rest {topo_haemo} changes timeline', 
-                fontsize='x-large', 
-                horizontalalignment='center', 
-                verticalalignment='center'
-                )#we set a timeline for each epoch
-        if haemo_picks == 'hbo':
-            topo_smr_np = np.save(rf'{dirs_to_save_stuff["topo_hbo_path_np"]}\{SUBJECT} {CONDITION}_smr {haemo_picks} np topo.npy', smr_evoked.get_data())
-            topo_rest_np = np.save(rf'{dirs_to_save_stuff["topo_hbo_path_np"]}\{SUBJECT} {CONDITION}_rest {haemo_picks} np topo.npy', rest_evoked.get_data())
-            fig.savefig(rf'{dirs_to_save_stuff["topo_hbo_path"]}\{SUBJECT} {CONDITION} timeline.png', bbox_inches='tight') #this is a figure for our hemodynamic curves for epochs and haemo types
-            fig.clear()
-        elif haemo_picks == 'hbr':
-            topo_smr_np = np.save(rf'{dirs_to_save_stuff["topo_hbr_path_np"]}\{SUBJECT} {CONDITION}_smr {haemo_picks} np topo.npy', smr_evoked.get_data())
-            topo_rest_np = np.save(rf'{dirs_to_save_stuff["topo_hbr_path_np"]}\{SUBJECT} {CONDITION}_rest {haemo_picks} np topo.npy', rest_evoked.get_data())
-            fig.savefig(rf'{dirs_to_save_stuff["topo_hbr_path"]}\{SUBJECT} {CONDITION} timeline.png', bbox_inches='tight') #this is a figure for our hemodynamic curves for epochs and haemo types
-            fig.clear()
-            
-def epochs_structure(epochs, SUBJECT, CONDITION):
-    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(15, 6))
-    epochs['Sensorimotor'].plot_image(combine='mean', vmin=-15, vmax=15,
-                             ts_args=dict(ylim=dict(hbo=[-15, 15],
-                                                    hbr=[-15, 15])),
-                                                    axes=axes,
-                                                    evoked=True, 
-                                                    colorbar=True,
-                                                    picks = C3_chans_of_interest_hbo,
-                                                    show=False)
-    fig.savefig(rf'{dirs_to_save_stuff["epochs_structure_path"]}\{SUBJECT} {CONDITION} SMR epochs.png', bbox_inches='tight') #this is a figure for our hemodynamic curves for epochs and haemo types
-    fig.clear()
-    
-    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(15, 6))
-    epochs['Rest'].plot_image(combine='mean', vmin=-15, vmax=15,
-                             ts_args=dict(ylim=dict(hbo=[-15, 15],
-                                                    hbr=[-15, 15])),
-                                                    axes=axes,
-                                                    evoked=True, 
-                                                    colorbar=True, 
-                                                    picks = C3_chans_of_interest_hbo,
-                                                    show=False)
-
-    fig.savefig(rf'{dirs_to_save_stuff["epochs_structure_path"]}\{SUBJECT} {CONDITION} Rest epochs.png', bbox_inches='tight') #this is a figure for our hemodynamic curves for epochs and haemo types
-    fig.clear()
+def relative_measure(arr_target, arr_rest):
+    relation_percentage = arr_target / arr_rest * 100
+    return relation_percentage
