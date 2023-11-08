@@ -43,6 +43,7 @@ for filename in recordings_names[0:2]:
     
     threshold = 1.3*10**-5
     raw_haemo = get_raw_haemo(filename)
+    
     # logging.info(f'{SUBJECT} {CONDITION} interpolated channels N={len(channels_to_interpolate)}: {channels_to_interpolate}')
     
     chnames = raw_haemo.ch_names
@@ -69,36 +70,15 @@ for filename in recordings_names[0:2]:
                             )
 
     
-    # epochs_structure(epochs, SUBJECT=SUBJECT, CONDITION=CONDITION)
-    
-    # #you can set condition and subject by hand or get it from file's name
-    # picks_hbo_left, picks_hbr_left = C3_chans_of_interest_hbo, C3_chans_of_interest_hbr
-    # picks_hbo_right, picks_hbr_right = C4_chans_of_interest_hbo, C4_chans_of_interest_hbr
+    #reassign channels to pick
+    picks_hbo_left, picks_hbr_left = C3_chans_of_interest_hbo, C3_chans_of_interest_hbr
+    picks_hbo_right, picks_hbr_right = C4_chans_of_interest_hbo, C4_chans_of_interest_hbr
 
-    # smr_epochs_left = smr_epochs.copy().pick_channels(picks_hbo_left + picks_hbr_left)
-    # smr_epochs_right = smr_epochs.copy().pick_channels(picks_hbo_right + picks_hbr_right)
-    # rest_epochs_left = rest_epochs.copy().pick_channels(picks_hbo_left + picks_hbr_left)
-    # rest_epochs_right = rest_epochs.copy().pick_channels(picks_hbo_right + picks_hbr_right)
-
-
-    # #top channel plotting
-    # smr_evoked_left = smr_epochs_left.copy().average(picks=picks_hbo_left)
-    # data_smr = smr_evoked_left.get_data()
-    # mode = st.mode(np.argmax(data_smr, axis=0)[5*sfreq:12*sfreq])[0][0]
-    # top_channel_C3_hbo = smr_evoked_left.ch_names[mode]
-    # top_channel_C3_hbr = [top_channel_C3_hbo.replace('o', 'r'),]
-    # top_channel_C3_hbo = [top_channel_C3_hbo, ]
-
-    # smr_evoked_right = smr_epochs_right.copy().average(picks=picks_hbo_right)
-    # data_smr = smr_evoked_right.get_data()
-    # mode = st.mode(np.argmax(data_smr, axis=0)[5*sfreq:12*sfreq])[0][0]
-    # top_channel_C4_hbo = smr_evoked_right.ch_names[mode]
-    # top_channel_C4_hbr = [top_channel_C4_hbo.replace('o', 'r'),]
-    # top_channel_C4_hbo = [top_channel_C4_hbo, ]
-    
-    # logging.info(f'{SUBJECT} {CONDITION} top HbO channels left={top_channel_C3_hbo}')
-    # logging.info(f'{SUBJECT} {CONDITION} top HbO channels right={top_channel_C4_hbo}')
-
+    #save epochs with selected channels
+    smr_epochs_left = smr_epochs.copy().pick_channels(picks_hbo_left + picks_hbr_left)
+    smr_epochs_right = smr_epochs.copy().pick_channels(picks_hbo_right + picks_hbr_right)
+    rest_epochs_left = rest_epochs.copy().pick_channels(picks_hbo_left + picks_hbr_left)
+    rest_epochs_right = rest_epochs.copy().pick_channels(picks_hbo_right + picks_hbr_right)
 
     # evoked_dict_left = {f'{CONDITION}/HbO': smr_epochs_left.copy().average(picks=picks_hbo_left),
     #             f'{CONDITION}/HbR': smr_epochs_left.copy().average(picks=picks_hbr_left),
@@ -110,16 +90,16 @@ for filename in recordings_names[0:2]:
     #             'Rest/HbO': rest_epochs_right.copy().average(picks=picks_hbo_right),
     #             'Rest/HbR': rest_epochs_right.copy().average(picks=picks_hbr_right)}
     
-    
-    # # evoked_dict_left = {f'{CONDITION}/HbO': smr_epochs_left.copy().average(picks=top_channel_C3_hbo),
-    # #             f'{CONDITION}/HbR': smr_epochs_left.copy().average(picks=top_channel_C3_hbr),
-    # #             'Rest/HbO': rest_epochs_left.copy().average(picks=top_channel_C3_hbo),
-    # #             'Rest/HbR': rest_epochs_left.copy().average(picks=top_channel_C3_hbr)}
+    evoked_dict_left = {f'{CONDITION}/HbO': smr_epochs_left.copy().get_data().mean(axis=[0, 1]),
+                f'{CONDITION}/HbR': smr_epochs_left.copy().get_data().mean(axis=[0, 1]),
+                'Rest/HbO': rest_epochs_left.copy().get_data().mean(axis=[0, 1]),
+                'Rest/HbR': rest_epochs_left.copy().get_data().mean(axis=[0, 1])}
 
-    # # evoked_dict_right = {f'{CONDITION}/HbO': smr_epochs_right.copy().average(picks=top_channel_C4_hbo),  
-    # #             f'{CONDITION}/HbR': smr_epochs_right.copy().average(picks=top_channel_C4_hbr),  
-    # #             'Rest/HbO': rest_epochs_right.copy().average(picks=top_channel_C4_hbo),  
-    # #             'Rest/HbR': rest_epochs_right.copy().average(picks=top_channel_C4_hbr)}  
+    evoked_dict_right = {f'{CONDITION}/HbO': smr_epochs_right.copy().get_data().mean(axis=[0, 1]),
+                f'{CONDITION}/HbR': smr_epochs_right.copy().get_data().mean(axis=[0, 1]),
+                'Rest/HbO': rest_epochs_right.copy().get_data().mean(axis=[0, 1]),
+                'Rest/HbR': rest_epochs_right.copy().get_data().mean(axis=[0, 1])}
+    
 
     # a_right = evoked_dict_right[f'{CONDITION}/HbO'].get_data()
     # b_right = evoked_dict_right[f'{CONDITION}/HbR'].get_data()
