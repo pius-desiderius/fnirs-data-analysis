@@ -35,7 +35,6 @@ def get_raw_haemo(filename, threshold=1.3*10**-5):
     raw_od.drop_channels(DROP_CHANS) #we had a non-existent channel
 
     raw_od = mne_nirs.signal_enhancement.short_channel_regression(raw_od)
-    raw_od = enhance_negative_correlation(raw_od)
     raw_od = mne_nirs.channels.get_long_channels(raw_od)
     raw_od = temporal_derivative_distribution_repair(raw_od) #repairs movement artifacts
 
@@ -43,14 +42,18 @@ def get_raw_haemo(filename, threshold=1.3*10**-5):
     bad_sci = list(compress(raw_od.ch_names, sci < 0.6))
     bad_sci = [i.replace('760', 'hbr') for i in bad_sci]
     bad_sci = [i.replace('850', 'hbr') for i in bad_sci]
-
-    channels_to_interpolate = std_channels_rejector(raw_haemo, threshold) + bad_sci
-
+    bad_sci_hbo = [i.replace('hbr', 'hbo') for i in bad_sci]
+    bad_sci = list(set(bad_sci + bad_sci_hbo))
+    
     raw_haemo = beer_lambert_law(raw_od, ppf=0.1) #from wavelength to HbO\HbR
+    # channels_to_interpolate = std_channels_rejector(raw_haemo, threshold) + bad_sci
+    channels_to_interpolate =  bad_sci
     raw_haemo = raw_haemo.filter(**FILTER_DICT)
     print(channels_to_interpolate, '\n', len(channels_to_interpolate))
     raw_haemo.info['bads'] = channels_to_interpolate
     raw_haemo = raw_haemo.interpolate_bads()
+    raw_haemo = enhance_negative_correlation(raw_haemo)
+
 
     return raw_haemo
 
