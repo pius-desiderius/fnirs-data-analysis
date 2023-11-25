@@ -14,6 +14,7 @@ from mne.preprocessing.nirs import (optical_density,
 
 from mne import Epochs, events_from_annotations
 from meta import *
+from ROI import DROP_CHANS
 from filter_params import FILTER_DICT
 from file_scanning import *
 
@@ -24,7 +25,7 @@ def std_channels_rejector(raw_haemo, threshold):
     
     return outlier_channels
     
-def get_raw_haemo(filename, threshold=1.3*10**-5):
+def get_raw_haemo(filename):
     raw_intensity = mne.io.read_raw_nirx(filename, verbose=False)
     raw_od = optical_density(raw_intensity) #from row wavelength data
 
@@ -55,7 +56,7 @@ def get_raw_haemo(filename, threshold=1.3*10**-5):
     raw_haemo = enhance_negative_correlation(raw_haemo)
 
 
-    return raw_haemo
+    return raw_haemo, channels_to_interpolate
 
 def clean_epochs(raw_haemo, events, ids, tmin, tmax, baseline, drop_epochs_flag=True):
         '''This functions takes raw_haemo recording, events and ids, 
@@ -97,14 +98,50 @@ def clean_epochs(raw_haemo, events, ids, tmin, tmax, baseline, drop_epochs_flag=
 
         return smr_epochs, rest_epochs
 
+def make_evokeds(smr_epochs, 
+                 rest_epochs, 
+                 roi_left_hbo, 
+                 roi_right_hbo,
+                 roi_left_hbr, 
+                 roi_right_hbr,  
+                 condition):
+    
+    smr_epochs_left = smr_epochs.copy()
+    smr_epochs_right = smr_epochs.copy()
+    rest_epochs_left = rest_epochs.copy()
+    rest_epochs_right = rest_epochs.copy()
+   
+    
 
-def epochs_rejector(epochs, criterion='median',
+    
+    evoked_dict_left = {f'{condition}/HbO': smr_epochs_left.copy().average(picks=roi_left_hbo),
+                f'{condition}/HbR': smr_epochs_left.copy().average(picks=roi_left_hbr),
+                'Rest/HbO': rest_epochs_left.copy().average(picks=roi_left_hbo),
+                'Rest/HbR': rest_epochs_left.copy().average(picks=roi_left_hbr)}
+
+    evoked_dict_right = {f'{condition}/HbO': smr_epochs_right.copy().average(picks=roi_right_hbo),
+                f'{condition}/HbR': smr_epochs_right.copy().average(picks=roi_right_hbr),
+                'Rest/HbO': rest_epochs_right.copy().average(picks=roi_right_hbo),
+                'Rest/HbR': rest_epochs_right.copy().average(picks=roi_right_hbr)}
+    
+    return evoked_dict_left, evoked_dict_right
+
+def make_evoked_array(data, info):
+    return mne.EvokedArray(data=data, 
+                            info=info, 
+                            tmin=TMIN, 
+                            nave=1, 
+                            kind='average', 
+                            baseline=BASELINE,
+                            verbose=None)
+
+def epochs_rejector(epochs, ch_pick, criterion='median',
                     sfreq=SFREQ, 
                     time_limits = (4, 12),
                     lower=0.10, upper=0.90): 
 
     time_limits = (time_limits[0]*sfreq, time_limits[1]*sfreq)
-    epochs.copy().pick_channels(C3_chans_of_interest_hbo)
+    epochs.copy().pick_channels(ch_pick)
     epochs_data = epochs.get_data()[:, :, time_limits[0]:time_limits[1]]
 
     if criterion == 'median':
@@ -130,6 +167,7 @@ def oxy_level(hbo_arr, hbr_arr):
     oxygenation = hbo_arr / hbt_total(hbo_arr, hbr_arr)
     return oxygenation
 
-def relative_measure(arr_target, arr_rest):
-    relation_percentage = arr_target / arr_rest * 100
-    return relation_percentage
+def relative_measure(arr_target):
+    a_rest = np.median(arr_target[:, 1:4])
+    relation = (arr_target - a_rest) / a_rest * -1
+    return relation

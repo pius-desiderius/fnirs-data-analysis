@@ -1,11 +1,11 @@
 #define your filtering parameters
 
-LFREQ = 0.01
+LFREQ = 0.005
 HFREQ = 0.1
 H_TRANS_BANDWIDTH = 0.1
-L_TRANS_BANDWIDTH = 0.01
+L_TRANS_BANDWIDTH = 0.005
 
-METHOD = 'iir'
+METHOD = 'fir'
 F_TYPE = 'butter'
 ORDER = 8
 RIPPLE = 1.0
@@ -21,7 +21,7 @@ IIR_FILTER_PARAMS = dict(
 if METHOD == 'iir':
     FILTER_DICT = dict(
                         l_freq=LFREQ, 
-                        h_freq=HFREQ, 
+                        h_freq=HFREQ,                     
                         method=METHOD, 
                         iir_params=IIR_FILTER_PARAMS, 
                         verbose=False,
