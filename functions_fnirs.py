@@ -98,42 +98,15 @@ def clean_epochs(raw_haemo, events, ids, tmin, tmax, baseline, drop_epochs_flag=
 
         return smr_epochs, rest_epochs
 
-def make_evokeds(smr_epochs, 
-                 rest_epochs, 
-                 roi_left_hbo, 
-                 roi_right_hbo,
-                 roi_left_hbr, 
-                 roi_right_hbr,  
-                 condition):
-    
-    smr_epochs_left = smr_epochs.copy()
-    smr_epochs_right = smr_epochs.copy()
-    rest_epochs_left = rest_epochs.copy()
-    rest_epochs_right = rest_epochs.copy()
-   
-    
+def make_evokeds_roi(smr_epochs, rest_epochs, pick):
 
+    smr_roi_epochs = smr_epochs.copy().pick(pick)
+    rest_roi_epochs = rest_epochs.copy().pick(pick)
     
-    evoked_dict_left = {f'{condition}/HbO': smr_epochs_left.copy().average(picks=roi_left_hbo),
-                f'{condition}/HbR': smr_epochs_left.copy().average(picks=roi_left_hbr),
-                'Rest/HbO': rest_epochs_left.copy().average(picks=roi_left_hbo),
-                'Rest/HbR': rest_epochs_left.copy().average(picks=roi_left_hbr)}
-
-    evoked_dict_right = {f'{condition}/HbO': smr_epochs_right.copy().average(picks=roi_right_hbo),
-                f'{condition}/HbR': smr_epochs_right.copy().average(picks=roi_right_hbr),
-                'Rest/HbO': rest_epochs_right.copy().average(picks=roi_right_hbo),
-                'Rest/HbR': rest_epochs_right.copy().average(picks=roi_right_hbr)}
+    evoked_smr = smr_roi_epochs.get_data().mean(axis=0)
+    evoked_rest = rest_roi_epochs.get_data().mean(axis=0)
     
-    return evoked_dict_left, evoked_dict_right
-
-def make_evoked_array(data, info):
-    return mne.EvokedArray(data=data, 
-                            info=info, 
-                            tmin=TMIN, 
-                            nave=1, 
-                            kind='average', 
-                            baseline=BASELINE,
-                            verbose=None)
+    return evoked_smr, evoked_rest
 
 def epochs_rejector(epochs, ch_pick, criterion='median',
                     sfreq=SFREQ, 
@@ -167,7 +140,7 @@ def oxy_level(hbo_arr, hbr_arr):
     oxygenation = hbo_arr / hbt_total(hbo_arr, hbr_arr)
     return oxygenation
 
-def relative_measure(arr_target):
-    a_rest = np.median(arr_target[:, 1:4])
+def relative_measure(arr_target, arr_rest):
+    a_rest = np.median(arr_rest[:, 1:4])
     relation = (arr_target - a_rest) / a_rest * -1
     return relation

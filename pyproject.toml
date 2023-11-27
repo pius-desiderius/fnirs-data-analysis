@@ -1,0 +1,43 @@
+[tool.poetry]
+name = "fnirs"
+version = "0.1.0"
+description = "fnirs and eeg extension"
+authors = ["Andrei Miroshnikov"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.12"
+mne-connectivity = "^0.4.0"
+mne-nirs = "^0.4.0"
+scikit-learn = "1.1.0"
+matplotlib = "^3.6.2"
+scipy = "^1.9.3"
+numpy = "^1.23.5"
+pandas = "^1.5.2"
+mne = "^1.2.3"
+jupyter = "^1.0.0"
+pyqt5 = "^5.15.7"
+seaborn = "^0.12.1"
+pyvistaqt = "^0.9.0"
+darkdetect = "^0.7.1"
+graphviz = "^0.20.1"
+meegkit = "^0.1.3"
+mne-bids = "^0.12"
+yellowbrick = "^1.5"
+minisom = "^2.3.1"
+pyedflib = "^0.1.30"
+edflib-python = "^1.0.6"
+keras = "^2.12.0"
+tensorflow = "^2.12.0"
+moviepy = "^1.0.3"
+ffmpeg = "^1.4"
+xgboost = "^1.7.5"
+nma-ibl = "^0.1.0"
+datajoint = "^0.14.1"
+opencv-python = "^4.8.1.78"
+emd = "^0.6.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
