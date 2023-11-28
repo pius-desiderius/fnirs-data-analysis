@@ -86,11 +86,6 @@ def make_topo_arrays(smr_epochs, rest_epochs, hb_type, window=None):
         rest_topos_relation_hbt_mean = (rest_topos_hbt_mean - rest_ref) / rest_ref * -1
         
         return smr_topos_relation_hbt_mean, rest_topos_relation_hbt_mean
-    
-    
-def mean_topomap(arr, window=(4, 12)):
-    mean_arr = arr[:, window[0]:window[1]].mean(axis=1)
-    return mean_arr
 
 
 
