@@ -35,7 +35,12 @@ for filename in subfolders:
                 
         np.save(f'{DIRS_TO_SAVE_STUFF["epochs_folder"]}/{SUBJECT}_{CONDITION}_REST_EPOCHS.npy', rest_epochs)
         np.save(f'{DIRS_TO_SAVE_STUFF["epochs_folder"]}/{SUBJECT}_{CONDITION}_SMR_EPOCHS.npy', smr_epochs)
+        info_hbo_total.save('info_hbo_total_info.fif')
+        info_hbr_total.save('info_hbr_total_info.fif')
+        info_left_smz.save('info_left_smz_info.fif')
+        info_right_smz.save('info_right_smz_info.fif')
 
+        break
         evokeds_SMR_list = []
         evokeds_REST_list = []
         evokeds_info_list = []
