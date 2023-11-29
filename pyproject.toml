@@ -8,7 +8,6 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.8,<3.12"
 mne-connectivity = "^0.4.0"
-mne-nirs = "^0.4.0"
 scikit-learn = "1.1.0"
 matplotlib = "^3.6.2"
 scipy = "^1.9.3"
@@ -36,6 +35,7 @@ nma-ibl = "^0.1.0"
 datajoint = "^0.14.1"
 opencv-python = "^4.8.1.78"
 emd = "^0.6.2"
+mne-nirs = "^0.6.0"
 
 
 [build-system]

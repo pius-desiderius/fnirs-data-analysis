@@ -7,6 +7,11 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from plotting_params import *
 from meta import DIRS_TO_SAVE_STUFF
 
+fnirs_colors = dict(
+    hbo='#C91111',
+    hbt= '#5B324B',
+    hbr='#004E7C',
+  )
 
 TMIN  = float(-1.)
 TMAX = float(14.0)
@@ -15,7 +20,7 @@ SFREQ = 2
 curves_hb = 'hbo'
 logging.basicConfig(filename="log_runtime.txt", format="%(asctime)s %(message)s", filemode="w", level=logging.INFO)
 
-fnirs_dir = r"C:\Users\Admin\Desktop\IMAGERY-FNIRS"
+fnirs_dir = "/mnt/diskus/fNIRS data ME_MI_TS_TI_SA"
 subfolders = fast_scandir(fnirs_dir)[20:]
 
 print(subfolders)
@@ -35,12 +40,12 @@ for filename in subfolders:
                 
         np.save(f'{DIRS_TO_SAVE_STUFF["epochs_folder"]}/{SUBJECT}_{CONDITION}_REST_EPOCHS.npy', rest_epochs)
         np.save(f'{DIRS_TO_SAVE_STUFF["epochs_folder"]}/{SUBJECT}_{CONDITION}_SMR_EPOCHS.npy', smr_epochs)
-        info_hbo_total.save('info_hbo_total_info.fif')
-        info_hbr_total.save('info_hbr_total_info.fif')
-        info_left_smz.save('info_left_smz_info.fif')
-        info_right_smz.save('info_right_smz_info.fif')
+        # info_hbo_total.save('info_hbo_total_info.fif')
+        # info_hbr_total.save('info_hbr_total_info.fif')
+        # info_left_smz.save('info_left_smz_info.fif')
+        # info_right_smz.save('info_right_smz_info.fif')
 
-        break
+        
         evokeds_SMR_list = []
         evokeds_REST_list = []
         evokeds_info_list = []
@@ -403,7 +408,8 @@ for filename in subfolders:
 
         plt.subplots_adjust(**curves_subplot_params)
         fig.savefig(rf'{DIRS_TO_SAVE_STUFF[f"haemo_folder_path"]}/{SUBJECT}_{CONDITION}_haemo.png', bbox_inches='tight')
-        fig.clear() 
+        fig.clear()
+        plt.close(fig) 
 
 
 
@@ -487,7 +493,6 @@ for filename in subfolders:
         ], axis=0)
         np.save(f'{DIRS_TO_SAVE_STUFF["topo_path_np"]}/{SUBJECT}_{CONDITION}_smr_rest_topo.npy', topo_nps)
 
-        
 
 
 
