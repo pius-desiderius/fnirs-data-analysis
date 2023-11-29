@@ -537,7 +537,7 @@ for filename in subfolders:
 
         cbaxes = fig.add_axes([0.075, 0.25, 0.03, 0.5]) # setup colorbar axes. 
         cbar = plt.colorbar(mappable=sm, cax=cbaxes, pad=0.15, orientation='vertical')
-        cbar.set_label(' Hb concentration, Δ μM\L', loc='center', size=12)
+        cbar.set_label('Hb relation, %', loc='center', size=12)
         cbar.ax.yaxis.set_label_coords(-0.65, 0.5)
         plt.subplots_adjust(**one_topomap_subplot_params)
         
