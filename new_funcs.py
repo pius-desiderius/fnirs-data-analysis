@@ -1,19 +1,6 @@
 import mne
 import mne_nirs
 import numpy as np
-
-
-
-def make_evokeds_roi(smr_epochs, rest_epochs, pick):
-
-    smr_roi_epochs = smr_epochs.copy().pick(pick)
-    rest_roi_epochs = rest_epochs.copy().pick(pick)
-    
-    evoked_smr = smr_roi_epochs.get_data().mean(axis=0)
-    evoked_rest = rest_roi_epochs.get_data().mean(axis=0)
-    
-    return evoked_smr, evoked_rest
-
     
     
 def make_topo_arrays(smr_epochs, rest_epochs, hb_type, window=None):

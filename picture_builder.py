@@ -1,27 +1,21 @@
 import os.path as op
 import matplotlib.pyplot as plt
-from itertools import compress
-import time
 import logging
 import mne
 from mne import events_from_annotations
-from collections import OrderedDict
 
-import ROI
-from ROI import different_hb
+from ROI import different_hb, different_roi
 from functions_fnirs import *
 from meta import *
 from file_scanning import *
 from topomaps import topomaps_plotter
 
-start = time.time()
 logging.basicConfig(filename="log_.txt", format="%(asctime)s %(message)s", filemode="w", level=logging.INFO)
 
 splitting_slash = '/'
 fnirs_dir = r"/mnt/diskus/fNIRS data ME_MI_TS_TI_SA"
 subfolders = fast_scandir(fnirs_dir)
-subj_names = sorted([(i.split('\\')[-1]) for i in subfolders if len(i.split(splitting_slash)[-1])==2])
-recordings_names = sorted([i for i in subfolders if len(i.split(splitting_slash)[-1])!=2])
+
 
 for items in DIRS_TO_SAVE_STUFF.values():
     os.makedirs(items, exist_ok=True)

@@ -118,25 +118,26 @@ different_hb = OrderedDict(
     hbo=[
             M1_LEFT_ROI_HBO, 
             S1_LEFT_ROI_HBO,
-            SMZ_LEFT_ROI_HBO,
-            REMAINING_LEFT_ROI_HBO, 
-  
-            
+            SMZ_LEFT_ROI_HBO,  
+    
             M1_RIGHT_ROI_HBO,
             S1_RIGHT_ROI_HBO,
             SMZ_RIGHT_ROI_HBO,
+            
+            REMAINING_LEFT_ROI_HBO, 
             REMAINING_RIGHT_ROI_HBO,
             ],
     hbr=[
             M1_LEFT_ROI_HBR, 
             S1_LEFT_ROI_HBR,
             SMZ_LEFT_ROI_HBR,
-            REMAINING_LEFT_ROI_HBR,
               
             
             M1_RIGHT_ROI_HBR,
             S1_RIGHT_ROI_HBR,
             SMZ_RIGHT_ROI_HBR,
+            
+            REMAINING_LEFT_ROI_HBR,
             REMAINING_RIGHT_ROI_HBR
             ])
 
@@ -204,3 +205,4 @@ porsche_colors = {
     'Mint Green': '#78A086',
     'Riviera Blue': '#005D7E'
 }
+

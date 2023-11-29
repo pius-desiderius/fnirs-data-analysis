@@ -70,12 +70,11 @@ def get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ):
     raw_od = optical_density(raw_intensity) #from row wavelength data
     raw_od_shorts = mne_nirs.channels.get_short_channels(raw_od)
     raw_od.drop_channels(DROP_CHANS) #we had a non-existent channel
-
+    raw_od = raw_od.filter(**FILTER_DICT)
     raw_od = mne_nirs.signal_enhancement.short_channel_regression(raw_od)
     raw_od = mne_nirs.channels.get_long_channels(raw_od)
     raw_od = temporal_derivative_distribution_repair(raw_od)
     raw_od_unfiltered = raw_od.copy() #repairs movement artifacts
-    raw_od = raw_od.filter(**FILTER_DICT)
 
     ### BAD CHANNELS ###
     channel_std = np.std(raw_od.copy().pick([i for i in raw_od.ch_names if '760' in i]).get_data(), 
