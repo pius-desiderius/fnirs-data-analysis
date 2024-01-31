@@ -14,20 +14,61 @@ from ROI import different_roi
 from filter_params import FILTER_DICT
 from file_scanning import *
 
-def make_evokeds_roi(smr_epochs, rest_epochs, pick):
+
+def make_evokeds_roi(smr_epochs, rest_epochs, pick, averaging_method):
 
     smr_roi_epochs = smr_epochs.copy().pick(pick)
     smr_roi_epochs_info = smr_roi_epochs.info
     rest_roi_epochs = rest_epochs.copy().pick(pick)
     
-    evoked_smr = smr_roi_epochs.get_data().mean(axis=0)
-    evoked_rest = rest_roi_epochs.get_data().mean(axis=0)
-    
+    if averaging_method == 'mean':
+        evoked_smr = smr_roi_epochs.get_data().mean(axis=0)
+        evoked_rest = rest_roi_epochs.get_data().mean(axis=0)
+    elif averaging_method == 'median':
+        evoked_smr = np.median(smr_roi_epochs.get_data(), axis=0)
+        evoked_rest = np.median(rest_roi_epochs.get_data(), axis=0)
+     
     return evoked_smr, evoked_rest, smr_roi_epochs_info
+
+
+def point_to_point_norm(smr_epochs, rest_epochs, pick, method):
+    smr_roi_epochs = smr_epochs.copy().pick(pick)
+    smr_roi_epochs_info = smr_roi_epochs.info
+    rest_roi_epochs = rest_epochs.copy().pick(pick)
+    
+    if averaging_method == 'mean':
+        evoked_rest = np.mean(rest_roi_epochs.get_data(), axis=0)
+        normalized_smr = smr_roi_epochs.get_data() / evoked_rest
+        normalized_smr = np.mean(normalized_smr, axis=0)
+    elif averaging_method == 'median':
+        evoked_rest = np.median(rest_roi_epochs.get_data(), axis=0)
+        normalized_smr = smr_roi_epochs.get_data() / evoked_rest
+        normalized_smr = np.median(normalized_smr, axis=0)
+    return normalized_smr, smr_roi_epochs_info
+
+def median_in_rest(smr_epochs, rest_epochs, pick, method):
+    smr_roi_epochs = smr_epochs.copy().pick(pick)
+    smr_roi_epochs_info = smr_roi_epochs.info
+    rest_roi_epochs = rest_epochs.copy().pick(pick)
+    
+    if averaging_method == 'mean':
+        evoked_rest = np.mean(rest_roi_epochs.get_data(), axis=0)
+        evoked_rest = np.median(evoked_rest[:, 1*SFREQ:13*SFREQ], axis=1)
+        normalized_smr = smr_roi_epochs.get_data() / evoked_rest
+        normalized_smr = np.mean(normalized_smr, axis=0)
+    elif averaging_method == 'median':
+        evoked_rest = np.median(rest_roi_epochs.get_data(), axis=0)
+        evoked_rest = np.median(evoked_rest[:, 1*SFREQ:13*SFREQ], axis=1)
+        normalized_smr = smr_roi_epochs.get_data() / evoked_rest
+        normalized_smr = np.median(normalized_smr, axis=0)
+    return normalized_smr, smr_roi_epochs_info
+
+
+
 
 def epochs_rejector(epochs, ch_pick, criterion='median',
                     sfreq=SFREQ, 
-                    time_limits = (4, 12),
+                    time_limits = (2, 13),
                     lower=0.10, upper=0.90): 
 
     time_limits = (time_limits[0]*sfreq, time_limits[1]*sfreq)
@@ -43,6 +84,33 @@ def epochs_rejector(epochs, ch_pick, criterion='median',
 
         reject_bool_negative = median < lower_quantile
         reject_bool_positive = median > upper_quantile
+
+        reject_bool = np.logical_or( 
+                                    reject_bool_negative, 
+                                    reject_bool_positive)
+    if criterion == 'maximum':
+
+        maximum = np.max(epochs_data, axis=1)
+        maximum = np.max(maximum, axis=1)
+        lower_quantile = np.quantile(maximum, lower)
+        upper_quantile = np.quantile(maximum, upper)
+
+        reject_bool_negative = maximum < lower_quantile
+        reject_bool_positive = maximum > upper_quantile
+
+        reject_bool = np.logical_or( 
+                                    reject_bool_negative, 
+                                    reject_bool_positive)
+
+    if criterion == 'minimum':
+
+        minimum = np.min(epochs_data, axis=1)
+        minimum = np.min(minimum, axis=1)
+        lower_quantile = np.quantile(minimum, lower)
+        upper_quantile = np.quantile(minimum, upper)
+
+        reject_bool_negative = minimum < lower_quantile
+        reject_bool_positive = minimum > upper_quantile
 
         reject_bool = np.logical_or( 
                                     reject_bool_negative, 
@@ -87,7 +155,7 @@ def get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ):
 
     raw_od.info['bads'] = bad_channels
     raw_od.interpolate_bads(method={'fnirs':'nearest'})
-    raw_od.apply_function(rolling_mean_filter, picks=raw_od.ch_names)
+    # raw_od.apply_function(rolling_mean_filter, picks=raw_od.ch_names)
 
 
     raw_haemo = beer_lambert_law(raw_od, ppf=0.1) #from wavelength to HbO\HbR
@@ -132,11 +200,20 @@ def get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ):
     return epochs, smr_epochs, rest_epochs, info_hbo_total, info_hbr_total, info_left_smz, info_right_smz, bad_channels
 
 
-def relative_measure(arr_target, arr_rest, SFREQ):
-    a_rest = np.median(arr_rest[1*SFREQ:4*SFREQ])
+def relative_measure(arr_target, arr_rest, start=2, end=14, SFREQ=2):
+    a_rest = np.median(arr_rest[start*SFREQ:end*SFREQ])
     relation = (arr_target - a_rest) / np.abs(a_rest) * 100
-    return relation    
+    return relation
+
+def relative_measure_topo(arr_target, arr_rest, start=2, end=14, SFREQ=2):
+    a_rest = np.median(arr_rest[start*SFREQ:end*SFREQ])
+    relation = (arr_target - a_rest) / np.abs(a_rest) * 100
+    return relation
     
+def mean_rest_epoch(arr_rest, start=2, end=14, SFREQ=2):
+    a_rest = np.median(arr_rest[start*SFREQ:end*SFREQ])
+    return a_rest
+
 
 def set_axis_properties(ax, ylims, tlims, title,
                         xlabel='Time, s', 
@@ -192,12 +269,9 @@ def get_top_channels_mask(arr, info, top_n=10):
     names_dict = {info['ch_names'][int(top_idx[idx])]:top_values[idx] for idx in range(len(top_idx))}
     return mask, names_dict
 
-def relative_measure_topo(arr_target, arr_rest, SFREQ):
-    a_rest = np.median(arr_rest[:, 1*SFREQ:4*SFREQ], axis=1)
-    relation = (arr_target - a_rest[:, None]) / np.abs(a_rest[:, None]) * 100
-    return relation
 
-    
-    
+def get_norm(x):
+    norm = np.abs(max(x.min(), x.max(), key=abs))
+    return norm
     
     

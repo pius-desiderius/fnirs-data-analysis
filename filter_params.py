@@ -1,13 +1,13 @@
 #define your filtering parameters
 
-LFREQ = 0.005
+LFREQ = 0.05
 HFREQ = 0.1
 H_TRANS_BANDWIDTH = 0.1
-L_TRANS_BANDWIDTH = 0.005
+L_TRANS_BANDWIDTH = 0.05
 
 METHOD = 'fir'
 F_TYPE = 'butter'
-ORDER = 8
+ORDER = 10
 RIPPLE = 1.0
 FIR_DESIGN='firwin2'
 
