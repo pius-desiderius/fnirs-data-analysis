@@ -1,8 +1,8 @@
 #DEFINE SAMPLING RATE
-SFREQ = 2
+SFREQ = 3
 
 #DEFINE EPOCHS LIMITS
-TMIN = float(-1.0)
+TMIN = float(-2.0)
 TMAX = float(14.0)
 
 #DEFINE EPOCHS LABELS
@@ -15,9 +15,11 @@ IDS_TO_POP = ["2.0", "33.0", "1.0", "2", "1", "33"]
 #DEFINE BASELINE
 BASELINE = (-1, 0.5)
 
-#DEFINE EPOCHS DROPPING PARAMETERS
-SMR_LOWER_QUANTILE, SMR_UPPER_QUANTILE = 0.05, 0.95
-REST_LOWER_QUANTILE, REST_UPPER_QUANTILE = 0.05, 0.95
+curves_hb = 'hbo'
+
+# #DEFINE EPOCHS DROPPING PARAMETERS
+# SMR_LOWER_QUANTILE, SMR_UPPER_QUANTILE = 0.05, 0.95
+# REST_LOWER_QUANTILE, REST_UPPER_QUANTILE = 0.05, 0.95
 
 
 # #DEFINE PATHNAMES FOR DIRECTORIES
@@ -32,7 +34,8 @@ REST_LOWER_QUANTILE, REST_UPPER_QUANTILE = 0.05, 0.95
 # )
 
 #DEFINE PATHNAMES FOR DIRECTORIES
-DIRS_TO_SAVE_STUFF = dict(  epochs_folder = r"./epochs",
+DIRS_TO_SAVE_STUFF = dict( 
+                          epochs_folder = r"./epochs",
                           
                             haemo_folder_path = r"./haemodynamics",
                             haemo_folder_path_np = r"./haemodynamics_np",
@@ -43,8 +46,13 @@ DIRS_TO_SAVE_STUFF = dict(  epochs_folder = r"./epochs",
                             topo_path = r"./topomaps",
                             topo_path_np = r"./topomaps_np",
                             
+                            evokeds_ = r'./evokeds_np',
+                            evokeds_rel = r'./evokeds_rel_np',
+                            
                             topo_rel_path = r"./topomaps_rel",
                             topo_rel_path_np = r"./topomaps_rel_np",
+                            
+                            all_epochs = r'./all_epochs'
 )
 
 

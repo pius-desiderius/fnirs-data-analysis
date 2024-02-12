@@ -8,6 +8,7 @@ M1_LEFT_ROI_HBO = [
   'S9_D10 hbo',
   'S10_D13 hbo',
   'S6_D13 hbo',
+  'S10_D16 hbo'
 ]
 M1_LEFT_ROI_HBR = [i.replace('hbo', 'hbr') for i in M1_LEFT_ROI_HBO]
 M1_LEFT_ROI = M1_LEFT_ROI_HBO + M1_LEFT_ROI_HBR
@@ -30,7 +31,8 @@ REMAINING_LEFT_ROI_HBO = [
   'S9_D18 hbo',
   'S16_D16 hbo',
   'S16_D13 hbo',
-  'S10_D16 hbo',
+  'S15_D12 hbo',
+  'S10_D19 hbo'
 ]
 REMAINING_LEFT_ROI_HBR = [i.replace('hbo', 'hbr') for i in REMAINING_LEFT_ROI_HBO]
 REMAINING_LEFT_ROI = REMAINING_LEFT_ROI_HBR + REMAINING_LEFT_ROI_HBO
@@ -49,6 +51,7 @@ M1_RIGHT_ROI_HBO = [
   'S11_D14 hbo',
   'S12_D14 hbo',
   'S7_D14 hbo',
+  'S11_D17 hbo'
 ]
 M1_RIGHT_ROI_HBR = [i.replace('hbo', 'hbr') for i in M1_RIGHT_ROI_HBO]
 M1_RIGHT_ROI = M1_RIGHT_ROI_HBO + M1_RIGHT_ROI_HBR
@@ -71,7 +74,8 @@ REMAINING_RIGHT_ROI_HBO = [
   'S12_D21 hbo',
   'S17_D14 hbo',
   'S17_D17 hbo',
-  'S11_D17 hbo',
+  'S11_D20 hbo',
+  'S18_D15 hbo'
 ]
 REMAINING_RIGHT_ROI_HBR = [i.replace('hbo', 'hbr') for i in REMAINING_RIGHT_ROI_HBO]
 REMAINING_RIGHT_ROI = REMAINING_RIGHT_ROI_HBR + REMAINING_RIGHT_ROI_HBO
@@ -205,4 +209,3 @@ porsche_colors = {
     'Mint Green': '#78A086',
     'Riviera Blue': '#005D7E'
 }
-

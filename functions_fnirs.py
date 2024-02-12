@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mne
 import mne_nirs
+import scipy.signal as sg
 from mne.preprocessing.nirs import optical_density, beer_lambert_law
 from mne_nirs.signal_enhancement import enhance_negative_correlation
 
@@ -10,25 +11,30 @@ from mne.preprocessing.nirs import (optical_density,
 
 from mne import events_from_annotations
 from meta import *
-from ROI import different_roi
+from ROI import *
 from filter_params import FILTER_DICT
 from file_scanning import *
 
 
-def make_evokeds_roi(smr_epochs, rest_epochs, pick, averaging_method):
+info_hbo_total = mne.io.read_info('/mnt/diskus/infos/info_hbo_total_info.fif')
 
-    smr_roi_epochs = smr_epochs.copy().pick(pick)
-    smr_roi_epochs_info = smr_roi_epochs.info
-    rest_roi_epochs = rest_epochs.copy().pick(pick)
+def make_evokeds_roi(smr_epochs, rest_epochs, pick, averaging_method, info=info_hbo_total):
+    pick = get_channel_indices(pick, info)
+    smr_data, rest_data = epochs_transfer(smr_epochs, rest_epochs, 
+                                          picks=pick, info=info, 
+                                          time_limits=[7, 14])
+
+    
+    smr_data, rest_data = smr_data[:, pick, :], rest_data[:, pick, :]
     
     if averaging_method == 'mean':
-        evoked_smr = smr_roi_epochs.get_data().mean(axis=0)
-        evoked_rest = rest_roi_epochs.get_data().mean(axis=0)
+        evoked_smr = smr_data.mean(axis=0)
+        evoked_rest = rest_data.mean(axis=0)
     elif averaging_method == 'median':
-        evoked_smr = np.median(smr_roi_epochs.get_data(), axis=0)
-        evoked_rest = np.median(rest_roi_epochs.get_data(), axis=0)
+        evoked_smr = np.median(smr_data, axis=0)
+        evoked_rest = np.median(rest_data, axis=0)
      
-    return evoked_smr, evoked_rest, smr_roi_epochs_info
+    return evoked_smr, evoked_rest
 
 
 def point_to_point_norm(smr_epochs, rest_epochs, pick, method):
@@ -65,15 +71,15 @@ def median_in_rest(smr_epochs, rest_epochs, pick, method):
 
 
 
-
-def epochs_rejector(epochs, ch_pick, criterion='median',
+def epochs_rejector(epochs, ch_pick, info, criterion='maximum',
                     sfreq=SFREQ, 
-                    time_limits = (2, 13),
+                    time_limits = (5, 12),
                     lower=0.10, upper=0.90): 
-
     time_limits = (time_limits[0]*sfreq, time_limits[1]*sfreq)
-    epochs.copy().pick_channels(ch_pick)
-    epochs_data = epochs.get_data()[:, :, time_limits[0]:time_limits[1]]
+    picks = get_channel_indices(ch_pick, info)
+
+    epochs = epochs[:, picks, :]
+    epochs_data = epochs[:, :, time_limits[0]:time_limits[1]]
 
     if criterion == 'median':
 
@@ -132,6 +138,10 @@ def rolling_mean_filter(data, initial_mean=0, weight=0.75):
         i+=1
     return container
 
+def detrender(data):
+    
+    return sg.detrend(data, axis=-1)
+
 def get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ):
 
     raw_intensity = mne.io.read_raw_nirx(filename, verbose=False)
@@ -142,6 +152,8 @@ def get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ):
     raw_od = mne_nirs.signal_enhancement.short_channel_regression(raw_od)
     raw_od = mne_nirs.channels.get_long_channels(raw_od)
     raw_od = temporal_derivative_distribution_repair(raw_od)
+    raw_od.apply_function(detrender, picks=raw_od.ch_names)
+
     raw_od_unfiltered = raw_od.copy() #repairs movement artifacts
 
     ### BAD CHANNELS ###
@@ -164,14 +176,18 @@ def get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ):
     ids_target= 'SMR'
     ids_rest = 'REST'
 
-    events, ids = events_from_annotations(raw_haemo)
+    events_dir = '/mnt/diskus/events_for_fnirs'
+    events = np.load(f'{events_dir}/{filename[-5:]}.npy').astype(int)
+    ids = dict()
+
+    # events, ids = events_from_annotations(raw_haemo)
     ids[ids_target] = 1
     ids[ids_rest] = 2
 
-    IDS_TO_POP = ["2.0", "33.0", "1.0", "2", "1", "33"]
-    ids_to_pop = IDS_TO_POP
-    for i in ids_to_pop:
-        popper(ids, i)
+    # IDS_TO_POP = ["2.0", "33.0", "1.0", "2", "1", "33"]
+    # ids_to_pop = IDS_TO_POP
+    # for i in ids_to_pop:
+    #     popper(ids, i)
 
     epochs = mne.Epochs(
                         raw=raw_haemo,
@@ -190,25 +206,27 @@ def get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ):
     info_left_smz = epochs.copy().pick(different_roi['SMZ'][0])
     info_right_smz = epochs.copy().pick(different_roi['SMZ'][2])
 
+
+    info_hbo_total = epochs.copy().pick_types(fnirs='hbo').info
+    info_hbr_total = epochs.copy().pick_types(fnirs='hbr').info
+
+    epochs.pick(['hbo'])
+    
     rest_epochs = epochs['REST']
     smr_epochs = epochs['SMR']
-
-    info_hbo_total = rest_epochs.copy().pick_types(fnirs='hbo').info
-    info_hbr_total = rest_epochs.copy().pick_types(fnirs='hbr').info
-
     
     return epochs, smr_epochs, rest_epochs, info_hbo_total, info_hbr_total, info_left_smz, info_right_smz, bad_channels
 
 
 def relative_measure(arr_target, arr_rest, start=2, end=14, SFREQ=2):
-    a_rest = np.median(arr_rest[start*SFREQ:end*SFREQ])
-    relation = (arr_target - a_rest) / np.abs(a_rest) * 100
-    return relation
+    mean_arr_rest = np.median(arr_rest, axis=0)
+    relation = arr_target - mean_arr_rest
+    return np.median(relation, axis=0)
 
-def relative_measure_topo(arr_target, arr_rest, start=2, end=14, SFREQ=2):
-    a_rest = np.median(arr_rest[start*SFREQ:end*SFREQ])
-    relation = (arr_target - a_rest) / np.abs(a_rest) * 100
-    return relation
+# def relative_measure_topo(arr_target, arr_rest, start=2, end=14, SFREQ=2):
+#     a_rest = np.median(arr_rest[start*SFREQ:end*SFREQ])
+#     relation = (arr_target - a_rest) / np.abs(a_rest) * 100
+#     return relation
     
 def mean_rest_epoch(arr_rest, start=2, end=14, SFREQ=2):
     a_rest = np.median(arr_rest[start*SFREQ:end*SFREQ])
@@ -270,8 +288,225 @@ def get_top_channels_mask(arr, info, top_n=10):
     return mask, names_dict
 
 
-def get_norm(x):
-    norm = np.abs(max(x.min(), x.max(), key=abs))
-    return norm
+def norm_minmax(arr, maximum, minimum):
+    
+    normalized_arr = (arr - minimum) / (maximum - minimum)
+    return normalized_arr
+
+def minmax(arr):
+    maximum = np.max(arr)
+    minimum = np.min(arr)
+    
+    return maximum, minimum
     
     
+def subject_norms_getter(filename):
+        epochs, smr_epochs, rest_epochs, info_hbo_total, info_hbr_total, \
+        info_left_smz, info_right_smz, bad_channels = get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ)
+        smr_epochs = smr_epochs.get_data()
+        rest_epochs = rest_epochs.get_data()
+        
+        smr_epochs, rest_epochs = epochs_transfer(smr_epochs, rest_epochs, 
+                                                  time_limits=(7, 14), 
+                                                  picks=SMZ_LEFT_ROI_HBO,
+                                                  info=info_hbo_total)
+
+        
+        bool_mask_smr = epochs_rejector(epochs=smr_epochs, criterion='minimum', info=info_hbo_total,
+                                        ch_pick=SMZ_LEFT_ROI_HBO, lower=0.25, upper=1.0, time_limits=(7, 14))
+        bool_mask_rest = epochs_rejector(epochs=rest_epochs, criterion='maximum', info=info_hbo_total,
+                                         ch_pick=SMZ_LEFT_ROI_HBO, lower=0.0, upper=0.75, time_limits=(7,14))
+        
+        smr_epochs, rest_epochs = smr_epochs[~bool_mask_smr], rest_epochs[~bool_mask_rest]
+        max_values, min_values = [], []
+        
+        for i in range(6):
+                evoked_smr, evoked_rest = make_evokeds_roi(smr_epochs=smr_epochs,
+                                        rest_epochs=rest_epochs,
+                                        pick=different_hb[curves_hb][i],
+                                        averaging_method='mean'
+                                        )
+                max_smr, min_smr = minmax(evoked_smr)
+                max_rest, min_rest = minmax(evoked_rest)
+                max_values.append(max_smr)
+                max_values.append(max_rest)
+                min_values.append(min_smr)
+                min_values.append(min_rest)
+
+        
+        best_max = max(max_values)
+        best_min = min(min_values)
+        
+        return best_max, best_min
+    
+def subject_records_dict(fnirs_dir, state_exclude='SA'):
+    subfolders = fast_scandir(fnirs_dir)
+    subfolders = sorted(subfolders[20:])
+    subfolders = [i for i in subfolders if state_exclude not in i.split('/')[-1]]
+
+    subj_list = fast_scandir(fnirs_dir)
+    subj_list = list(set([i.split('/')[-2] for i in subj_list]))
+    subj_list = sorted([i for i in subj_list if len(i)==2])
+
+    DICT_OF_SUBJ_RECORDS = {subj:[] for subj in subj_list}
+
+    subj_i = 0
+    rec_i = 0
+    for i in subfolders:
+        
+        if subj_list[subj_i] in i:
+            DICT_OF_SUBJ_RECORDS[subj_list[subj_i]].append(i)
+            rec_i += 1
+            
+        if rec_i == 4:
+            subj_i += 1
+            rec_i = 0
+            
+    return DICT_OF_SUBJ_RECORDS
+    
+
+
+def epochs_preparation(filename, subject, condition):
+        epochs, smr_epochs, rest_epochs, info_hbo_total, info_hbr_total, \
+        info_left_smz, info_right_smz, bad_channels = get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ)
+        
+        smr_epochs, rest_epochs = smr_epochs.get_data(), rest_epochs.get_data()
+        
+        smr_epochs, rest_epochs = correct_times(smr_epochs), correct_times(rest_epochs)
+        
+        smr_epochs, rest_epochs = epochs_transfer(smr_epochs, rest_epochs, 
+                                                  time_limits=(7, 14), info=info_hbo_total,
+                                                  picks=SMZ_LEFT_ROI_HBO)
+        
+        bool_mask_smr = epochs_rejector(epochs=smr_epochs, criterion='minimum',
+                                        ch_pick=SMZ_LEFT_ROI_HBO, lower=0.25, upper=1.0, time_limits=(7, 14), info=info_hbo_total)
+        bool_mask_rest = epochs_rejector(epochs=rest_epochs, criterion='maximum',
+                                         ch_pick=SMZ_LEFT_ROI_HBO, lower=0.0, upper=0.75, time_limits=(7,14), info=info_hbo_total)
+
+        smr_epochs = smr_epochs[~bool_mask_smr]
+        rest_epochs = rest_epochs[~bool_mask_rest]
+ 
+        np.save(f'{DIRS_TO_SAVE_STUFF["epochs_folder"]}/{subject}_{condition}_REST_EPOCHS.npy', rest_epochs)
+        np.save(f'{DIRS_TO_SAVE_STUFF["epochs_folder"]}/{subject}_{condition}_SMR_EPOCHS.npy', smr_epochs)
+        
+        return epochs, smr_epochs, rest_epochs, info_hbo_total, info_hbr_total, \
+        info_left_smz, info_right_smz, bad_channels
+        # info_hbo_total.save('info_hbo_total_info.fif')
+        # info_hbr_total.save('info_hbr_total_info.fif')
+        # info_left_smz.save('info_left_smz_info.fif')
+        # info_right_smz.save('info_right_smz_info.fif')
+
+def evokeds_preparation(smr_epochs, rest_epochs, max_norm, min_norm, info, normalize=True):       
+        evokeds_SMR_list = []
+        evokeds_REST_list = []
+        
+        norm_values = []
+        for i in range(6):
+                evoked_smr, evoked_rest = make_evokeds_roi(smr_epochs=smr_epochs,
+                                        rest_epochs=rest_epochs,
+                                        pick=different_hb[curves_hb][i],
+                                        averaging_method='median',
+                                        info=info
+                                        )
+                
+                evokeds_SMR_list.append(evoked_smr)
+                evokeds_REST_list.append(evoked_rest)
+        
+        if normalize:
+            evokeds_SMR_list = [norm_minmax(i, max_norm, min_norm) for i in evokeds_SMR_list]
+            evokeds_REST_list = [norm_minmax(i, max_norm, min_norm)  for i in evokeds_REST_list]
+        else:
+            pass
+        
+        return evokeds_SMR_list, evokeds_REST_list
+
+import matplotlib.colors as mcolors
+
+def gradient(color1, color2, N):
+
+    rgb_color1 = mcolors.hex2color(color1)
+    rgb_color2 = mcolors.hex2color(color2)
+    
+    r_vals = np.linspace(rgb_color1[0], rgb_color2[0], N)
+    g_vals = np.linspace(rgb_color1[1], rgb_color2[1], N)
+    b_vals = np.linspace(rgb_color1[2], rgb_color2[2], N)
+    
+    gradient = [mcolors.rgb2hex((r, g, b)) for r, g, b in zip(r_vals, g_vals, b_vals)]
+    
+    return gradient
+
+def generate_cmap_colors(cmap_name, N):
+    """
+    Generate a list of colors from a specified colormap via N steps.
+    
+    Args:
+    - cmap_name: Name of the colormap (e.g., 'viridis', 'plasma', 'cool', etc.)
+    - N: Number of colors to generate from the colormap
+    
+    Returns:
+    - colors: List of colors from the specified colormap
+    """
+    cmap = plt.get_cmap(cmap_name)
+    colors = [cmap(i) for i in np.linspace(0, 1, N)]
+    return colors
+
+
+def epochs_transfer(TARGET, REST, picks, info, sfreq=SFREQ, time_limits=[5, 12]):
+    time_limits = (time_limits[0]*sfreq, time_limits[1]*sfreq)
+
+    if all(isinstance(x, str) for x in picks):
+        picks_idx = get_channel_indices(picks, info).astype(int)
+    else:
+        picks_idx = picks
+    picks_idx = np.array(picks_idx).astype(int)
+    
+    if not np.issubdtype(picks_idx.dtype, np.integer):
+        raise ValueError("picks must contain only integer values")
+    # Crop the epochs based on time limits and convert to numpy arrays
+    TARGET_data = TARGET
+    REST_data = REST
+
+    print(TARGET_data.shape)
+    # Calculate median for each epoch in TARGET
+    median_tgt = np.median(TARGET_data[:, picks_idx, time_limits[0]:time_limits[1]], axis=(1,2))
+    # Calculate median for each epoch in REST
+    median_rest = np.median(REST_data[:, picks_idx, time_limits[0]:time_limits[1]], axis=(1,2))
+
+    # Check the number of epochs in TARGET and REST
+    num_epochs_tgt = TARGET_data.shape[0]
+    num_epochs_rest = REST_data.shape[0]
+
+    if num_epochs_tgt > num_epochs_rest:
+        deviant_epoch_idx = np.argmin(median_tgt)
+        row_3d = TARGET_data[deviant_epoch_idx, :, : ][np.newaxis, :, :]
+
+        REST = np.concatenate((REST_data, row_3d), axis=0)
+        TARGET = np.delete(TARGET, deviant_epoch_idx, axis=0)
+        
+    elif num_epochs_tgt < num_epochs_rest:
+        deviant_epoch_idx = np.argmax(median_rest)
+        row_3d = REST_data[deviant_epoch_idx, :, : ][np.newaxis, :, :]
+        
+        TARGET = np.concatenate((TARGET_data, row_3d), axis=0)
+        REST = np.delete(REST, deviant_epoch_idx, axis=0)
+        
+    return TARGET, REST
+
+def get_channel_indices(channel_names, info):
+  
+    return mne.pick_channels(info['ch_names'], include=channel_names)
+
+def info_list(epochs):
+    info_list = []
+    for i in range(6):
+        a = epochs.pick_channels(different_hb[curves_hb][i])
+        info = a.info
+        info_list.append(info)
+    
+def correct_times(epochs, correct=(48)):
+    if epochs.shape[2] != 48:
+        epochs = np.delete(epochs, 48, axis=2)
+    else:
+        epochs = epochs
+        
+    return epochs

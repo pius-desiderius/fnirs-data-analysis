@@ -10,53 +10,52 @@ from meta import DIRS_TO_SAVE_STUFF
 plt.ioff()
 
 fnirs_colors = dict(
+#     hbo='#C91111',
+#     hbt= '#5B324B',
+#     hbr='#004E7C',
+    
     hbo='#C91111',
     hbt= '#A4C210',
     hbr='#135181',
   )
 
-TMIN  = float(-2)
-TMAX = float(14)
-BASELINE = (-1., 0.5)
-SFREQ = 3
-curves_hb = 'hbo'
-logging.basicConfig(filename="log_runtime.txt", format="%(message)s", filemode="w", level=logging.INFO)
+logging.basicConfig(filename="log_runtime.txt", format="%(asctime)s %(message)s", filemode="w", level=logging.INFO)
 
 fnirs_dir = "/mnt/diskus/fNIRS data ME_MI_TS_TI_SA"
-subfolders = fast_scandir(fnirs_dir)
-subfolders = sorted(subfolders[20:])
-print(subfolders)
-
 for items in DIRS_TO_SAVE_STUFF.values():
     os.makedirs(items, exist_ok=True)
+    
+DICT_OF_SUBJ_RECORDS = subject_records_dict(fnirs_dir=fnirs_dir)
+subjects = list(DICT_OF_SUBJ_RECORDS.keys())
 
-for filename in subfolders:
+for subj in subjects:
+    records = DICT_OF_SUBJ_RECORDS[subj]
+    max_norms_in_records = []
+    min_norms_in_records = []
+
+    
+    for filename in records:
+        max_norm, min_norm = subject_norms_getter(filename=filename)
+        max_norms_in_records.append(max_norm)
+        min_norms_in_records.append(min_norm)
+
+    max_norm = max(max_norms_in_records)
+    min_norm = min(min_norms_in_records)
+    
+    for filename in records:
         subj_and_cond = os.path.split(filename)[-1]
         print(subj_and_cond)
         CONDITION = subj_and_cond.split('_')[1]
         SUBJECT = subj_and_cond.split('_')[0]
 
-
-
         epochs, smr_epochs, rest_epochs, info_hbo_total, info_hbr_total, \
         info_left_smz, info_right_smz, bad_channels = epochs_preparation(filename, SUBJECT, CONDITION)
-        # np.save(f'{DIRS_TO_SAVE_STUFF["epochs_folder"]}/{SUBJECT}_{CONDITION}_REST_EPOCHS.npy', rest_epochs)
-        # np.save(f'{DIRS_TO_SAVE_STUFF["epochs_folder"]}/{SUBJECT}_{CONDITION}_SMR_EPOCHS.npy', smr_epochs)
-        # info_hbo_total.save('info_hbo_total_info.fif')
-        # info_hbr_total.save('info_hbr_total_info.fif')
-        # info_left_smz.save('info_left_smz_info.fif')
-        # info_right_smz.save('info_right_smz_info.fif')
-
         
         evokeds_SMR_list, evokeds_REST_list = evokeds_preparation(smr_epochs, 
                                                                   rest_epochs,
-                                                                  max_norm=1,
-                                                                  min_norm=2,
-                                                                  info=info_hbo_total,
-                                                                  normalize=False)
-        
-        evokeds_SMR_list = [i*1e6 for i in evokeds_SMR_list]
-        evokeds_REST_list = [i*1e6 for i in evokeds_REST_list]
+                                                                  max_norm,
+                                                                  min_norm,
+                                                                  info=info_hbo_total)
 
         M1_evoked_SMR_left = evokeds_SMR_list[0]
         S1_evoked_SMR_left = evokeds_SMR_list[1]
@@ -72,6 +71,7 @@ for filename in subfolders:
         S1_evoked_REST_right =  evokeds_REST_list[4]
         SMZ_evoked_REST_right = evokeds_REST_list[5]
 
+
         if curves_hb == 'hbo':
                 evoked_SMR, evoked_REST = make_evokeds_roi(
                                                                 smr_epochs=smr_epochs, 
@@ -79,40 +79,42 @@ for filename in subfolders:
                                                                 pick=info_hbo_total['ch_names'],
                                                                 averaging_method='median')
                 
+                evoked_SMR = norm_minmax(evoked_SMR, max_norm, min_norm)
+                evoked_REST = norm_minmax(evoked_REST, max_norm, min_norm)
+                
         if curves_hb == 'hbr':
                 evoked_SMR, evoked_REST = make_evokeds_roi(
                                                                 smr_epochs=smr_epochs, 
                                                                 rest_epochs=rest_epochs,
                                                                 pick=info_hbr_total['ch_names'],
                                                                 averaging_method='median')
-                
-        evoked_SMR = evoked_SMR*1e6
-        evoked_REST = evoked_REST*1e6
+                evoked_SMR = norm_minmax(evoked_SMR, max_norm, min_norm)
+                evoked_REST = norm_minmax(evoked_REST, max_norm, min_norm)
         ### RELATIVE MEASURE ERD-STYLE ###      
-        
-        ##RELATION LEFT###
-        relation_M1_left = relative_measure(M1_evoked_SMR_left,
-                                                M1_evoked_REST_left, SFREQ)
-        relation_S1_left = relative_measure(S1_evoked_SMR_left,
-                                                S1_evoked_REST_left, SFREQ)
-        relation_SMZ_left = relative_measure(SMZ_evoked_SMR_left,
-                                                SMZ_evoked_REST_left, SFREQ)
+                
+        # ##RELATION LEFT###
+        # relation_M1_left = relative_measure(M1_evoked_SMR_left.mean(axis=0),
+        #                                         M1_evoked_REST_left.mean(axis=0), SFREQ)
+        # relation_S1_left = relative_measure(S1_evoked_SMR_left.mean(axis=0),
+        #                                         S1_evoked_REST_left.mean(axis=0), SFREQ)
+        # relation_SMZ_left = relative_measure(SMZ_evoked_SMR_left.mean(axis=0),
+        #                                         SMZ_evoked_REST_left.mean(axis=0), SFREQ)
 
-        ###RELATION RIGHT###
-        relation_M1_right = relative_measure(M1_evoked_SMR_right,
-                                                M1_evoked_REST_right, SFREQ)
-        relation_S1_right = relative_measure(S1_evoked_SMR_right,
-                                                S1_evoked_REST_right, SFREQ)
-        relation_SMZ_right = relative_measure(SMZ_evoked_SMR_right,
-                                                SMZ_evoked_REST_right, SFREQ)
+        # ###RELATION RIGHT###
+        # relation_M1_right = relative_measure(M1_evoked_SMR_right.mean(axis=0),
+        #                                         M1_evoked_REST_right.mean(axis=0), SFREQ)
+        # relation_S1_right = relative_measure(S1_evoked_SMR_right.mean(axis=0),
+        #                                         S1_evoked_REST_right.mean(axis=0), SFREQ)
+        # relation_SMZ_right = relative_measure(SMZ_evoked_SMR_right.mean(axis=0),
+        #                                         SMZ_evoked_REST_right.mean(axis=0), SFREQ)
 
-        # ## RELATIVE MEASURE OTHER STLYE ###
-        # relation_M1_left = np.mean((M1_evoked_SMR_left) / (mean_rest_epoch(M1_evoked_REST_left)), axis=0)
-        # relation_S1_left = np.mean((S1_evoked_SMR_left) / (mean_rest_epoch(S1_evoked_REST_left)), axis=0)
-        # relation_SMZ_left = np.mean((SMZ_evoked_SMR_left) / (mean_rest_epoch(SMZ_evoked_REST_left)), axis=0)
-        # relation_M1_right = np.mean((M1_evoked_SMR_right) / (mean_rest_epoch(M1_evoked_REST_right)), axis=0)
-        # relation_S1_right = np.mean((S1_evoked_SMR_right) / (mean_rest_epoch(S1_evoked_REST_right)), axis=0)
-        # relation_SMZ_right = np.mean((SMZ_evoked_SMR_right) / (mean_rest_epoch(SMZ_evoked_REST_right)), axis=0)
+        ## RELATIVE MEASURE OTHER STLYE ###
+        relation_M1_left = np.median(M1_evoked_SMR_left - np.median(M1_evoked_REST_left, axis=0), axis=0)
+        relation_S1_left = np.median(S1_evoked_SMR_left - np.median(S1_evoked_REST_left, axis=0), axis=0)
+        relation_SMZ_left = np.median(SMZ_evoked_SMR_left - np.median(SMZ_evoked_REST_left, axis=0), axis=0)
+        relation_M1_right = np.median(M1_evoked_SMR_right - np.median(M1_evoked_REST_right, axis=0), axis=0)
+        relation_S1_right = np.median(S1_evoked_SMR_right - np.median(S1_evoked_REST_right, axis=0), axis=0)
+        relation_SMZ_right = np.median(SMZ_evoked_SMR_right - np.median(SMZ_evoked_REST_right, axis=0), axis=0)
 
 
 
@@ -198,8 +200,8 @@ for filename in subfolders:
         fig, axes = plt.subplots(1, 2, figsize=(20, 12))
         times = np.arange(TMIN, TMAX, 1/SFREQ)
         linewidth = 1.5
-        # ylims=(-50, 70)
-        ylims=(-5, 10)        
+        # ylims=(0, 100)
+        ylims = (-0.2, 0.5)
         tmin, tmax = TMIN, TMAX
         topo_linewidth = 1
         pointsize = 20
@@ -222,9 +224,9 @@ for filename in subfolders:
                                 axes[0],
                                 ylims=ylims, 
                                 tlims=(tmin, tmax), 
-                                title=f'HbO relation in LEFT hemisphere\nSubject {SUBJECT} Condition {CONDITION}',
+                                title=f'Hb difference in LEFT hemisphere\nSubject {SUBJECT} Condition {CONDITION}',
                                 xlabel='Time, s', 
-                                ylabel='Hb difference SMR-REST, Δ μM\L',  
+                                ylabel='Hb difference SMR-REST, a.u.',  
                                 linewidth=1.5, 
                                 fontsize=14, 
                                 title_size=18,
@@ -265,7 +267,7 @@ for filename in subfolders:
                                 axes[1],
                                 ylims=ylims, 
                                 tlims=(tmin, tmax), 
-                                title=f'HbO relation in RIGHT hemisphere\nSubject {SUBJECT} Condition {CONDITION}',
+                                title=f'Hb difference in RIGHT hemisphere\nSubject {SUBJECT} Condition {CONDITION}',
                                 xlabel='Time, s', 
                                 ylabel='',  
                                 linewidth=1.5, 
@@ -289,7 +291,7 @@ for filename in subfolders:
         ax_legend.legend([rel_line_m1_smr, rel_line_s1_smr, rel_line_smz_smr, fill_1], 
                         [f'M1 {curves_hb} relation', 
                         f'S1 {curves_hb} relation', 
-                        f'SMZ {curves_hb} relation', 
+                        f'SMA {curves_hb} relation', 
                         'Task duration'], 
                         **legend_params_dict) 
 
@@ -307,7 +309,7 @@ for filename in subfolders:
 
         fig, axes = plt.subplots(1, 2, figsize=(20, 12))
 
-        ylims=(-8, 12)
+        ylims=(0.2, 0.8)
         ### LEFT PART ###
 
         line_m1_smr, = axes[0].plot(times, M1_evoked_SMR_left.mean(axis=0), label=f'M1/{curves_hb} SMR', 
@@ -330,7 +332,7 @@ for filename in subfolders:
                                 tlims=(tmin, tmax), 
                                 title=f'HbO response in LEFT hemisphere\nSubject {SUBJECT} Condition {CONDITION}',
                                 xlabel='Time, s', 
-                                ylabel='Hb concentration, Δ μM\L',  
+                                ylabel='Hb concentration, Δ a.u.',  
                                 linewidth=1.5, 
                                 fontsize=14, 
                                 title_size=18,
@@ -396,7 +398,6 @@ for filename in subfolders:
                         f'M1/{curves_hb} REST', f'S1/{curves_hb} REST',f'SMA/{curves_hb} REST',
                         'Task duration'], 
                         **legend_params_dict) 
-        
 
         ax_legend.set_frame_on(False)
         ax_legend.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
@@ -406,33 +407,35 @@ for filename in subfolders:
         fig.clear()
         plt.close(fig) 
 
-        def get_max_time(cond_left, cond_right, time_limits=[int((4-TMIN)*SFREQ), int((12-TMIN)*SFREQ)]):
-                mean_left_cond_limited = conditions_roi_dict[cond_left][time_limits[0]:time_limits[1]]
-                mean_right_cond_limited = conditions_roi_dict[cond_right][time_limits[0]:time_limits[1]]
 
-                peak_timestamp_left = np.argmax(mean_left_cond_limited)
-                peak_timestamp_right = np.argmax(mean_right_cond_limited)
+        def get_max_time(cond_left, cond_right):
+                mean_left_cond = conditions_roi_dict[cond_left]
+                mean_right_cond = conditions_roi_dict[cond_right]
+
+                peak_timestamp_left = np.argmax(mean_left_cond)
+                peak_timestamp_right = np.argmax(mean_right_cond)
                 
-                max_value_left = np.median(mean_left_cond_limited[peak_timestamp_left-1*SFREQ : peak_timestamp_left+1*SFREQ])
-                max_value_right = np.median(mean_right_cond_limited[peak_timestamp_right-1*SFREQ : peak_timestamp_right+1*SFREQ])
+                max_value_left = mean_left_cond[peak_timestamp_left]
+                max_value_right = mean_right_cond[peak_timestamp_right]
 
                 prevalent_side = 'left' if max_value_left > max_value_right else 'right'
-                final_timestamp = peak_timestamp_left 
+                final_timestamp = peak_timestamp_left if max_value_left > max_value_right else peak_timestamp_right
                 
                 return final_timestamp, prevalent_side
 
-        TIME_RANGE = [int((4-TMIN)*SFREQ), int((12-TMIN)*SFREQ)]
+
         final_timestamp, prevalent_side = get_max_time(f'{CONDITION}_LEFT', f'{CONDITION}_RIGHT')
         rel_final_timestamp, rel_prevalent_side = get_max_time(f'rel_{CONDITION}_LEFT', 
                                                                 f'rel_{CONDITION}_RIGHT')
-        LOWER_TIME, UPPER_TIME = final_timestamp-1*SFREQ, final_timestamp+1*SFREQ
-        peak_time = final_timestamp/SFREQ + 4
-        
-        smr_in_peak_timestamp = np.median(evoked_SMR[:, LOWER_TIME+TIME_RANGE[0] : UPPER_TIME+TIME_RANGE[0]], axis=1)
-        rest_in_peak_timestamp = np.median(evoked_REST[:, LOWER_TIME+TIME_RANGE[0] : UPPER_TIME+TIME_RANGE[0]], axis=1)
-        
+        # smr_in_peak_timestamp = evoked_SMR[:, final_timestamp]
+        # rest_in_peak_timestamp = evoked_REST[:, final_timestamp]
         
         top_n_chans = 10
+        
+        TIME_RANGE = [int((4-TMIN)*SFREQ), int((12-TMIN)*SFREQ)]
+        smr_in_peak_timestamp = np.median(evoked_SMR[:, TIME_RANGE[0]:TIME_RANGE[1]], axis=1)
+        rest_in_peak_timestamp = np.median(evoked_REST[:, TIME_RANGE[1]:TIME_RANGE[1]], axis=1)
+
         mask_SMR, top_dict_SMR = get_top_channels_mask(smr_in_peak_timestamp, 
                                                         info_hbo_total, 
                                                         top_n_chans)
@@ -448,7 +451,7 @@ for filename in subfolders:
         # min1, max1 = min(smr_in_peak_timestamp*1e6), max(smr_in_peak_timestamp*1e6)
         # min2, max2 = min(rest_in_peak_timestamp*1e6), max(rest_in_peak_timestamp*1e6)
         # ylims = (min(min1, min2), max(max1, max2))
-        ylims = (-10, 15)
+        ylims = (-8, 12)
 
         fig, axes = plt.subplots(1, 2, figsize=(20, 12))
 
@@ -479,11 +482,11 @@ for filename in subfolders:
 
         ### TITLES ###
         axes[0].set_title(
-                f'Topography of {curves_hb} in subject {SUBJECT}\n in {CONDITION} in time range {np.round(peak_time-1, decimals=1)}:{np.round(peak_time+1, decimals=1)}s',
+                f'Topography of {curves_hb} in subject {SUBJECT}\n in {CONDITION} in time range{TIME_RANGE[0]}:{TIME_RANGE[1]}s',
         fontsize=18)
 
         axes[1].set_title(
-                f'Topography of {curves_hb} in subject {SUBJECT}\n in REST  in time range {np.round(peak_time-1, decimals=1)}:{np.round(peak_time+1, decimals=1)}s',
+                f'Topography of {curves_hb} in subject {SUBJECT}\n in REST  in time range{TIME_RANGE[0]}:{TIME_RANGE[1]}s',
         fontsize=18)
 
         ### COLORBAR SETTINGS ###
@@ -513,13 +516,9 @@ for filename in subfolders:
 
         fig, ax = plt.subplots(figsize=(10, 8))
         top_n_chans = 10
-        rel_evoked = np.median(smr_epochs - np.median(rest_epochs, axis=0), axis=0)*1e6
-        
-        # print('SHIT', rel_evoked.shape)
+        rel_evoked = evoked_SMR - evoked_REST
         # topo_rel = relative_measure_topo(evoked_SMR, evoked_REST, SFREQ)
-        LOWER_TIME, UPPER_TIME = rel_final_timestamp-1*SFREQ, rel_final_timestamp+1*SFREQ
-        
-        rel_smr_in_peak_timestamp = np.median(rel_evoked[:, LOWER_TIME+TIME_RANGE[0] : UPPER_TIME+TIME_RANGE[0]], axis=1)
+        rel_smr_in_peak_timestamp = np.median(rel_evoked[:, TIME_RANGE[0]:TIME_RANGE[1]], axis=1)
         rel_mask_SMR, rel_top_dict_SMR = get_top_channels_mask(rel_smr_in_peak_timestamp, 
                                                         info_hbo_total, 
                                                         top_n_chans)
@@ -547,7 +546,7 @@ for filename in subfolders:
 
         ### TITLES ###
         ax.set_title(
-                f'Topography of {curves_hb} in subject {SUBJECT}\n in {CONDITION} in time range {np.round(peak_time-1, decimals=1)}:{np.round(peak_time+1, decimals=1)}s',
+                f'Topography of {curves_hb} in subject {SUBJECT}\n in {CONDITION} in time range{TIME_RANGE[0]}:{TIME_RANGE[1]}s',
         fontsize=18)
 
 
@@ -557,7 +556,7 @@ for filename in subfolders:
 
         cbaxes = fig.add_axes([0.075, 0.25, 0.03, 0.5]) # setup colorbar axes. 
         cbar = plt.colorbar(mappable=sm, cax=cbaxes, pad=0.15, orientation='vertical')
-        cbar.set_label('Hb difference SMR-REST, Δ μM\L', loc='center', size=12)
+        cbar.set_label('Hb relation, %', loc='center', size=12)
         cbar.ax.yaxis.set_label_coords(-0.65, 0.5)
         plt.subplots_adjust(**one_topomap_subplot_params)
         
@@ -603,5 +602,3 @@ for filename in subfolders:
         logging.info(top_dict_REST_sorted)
         logging.info(rel_top_dict_SMR_sorted)
         logging.info('#'*10)
-
-
