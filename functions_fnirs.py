@@ -14,11 +14,11 @@ from meta import *
 from ROI import *
 from filter_params import FILTER_DICT
 from file_scanning import *
-
+import scipy.stats as st
 
 info_hbo_total = mne.io.read_info('/mnt/diskus/infos/info_hbo_total_info.fif')
 
-def make_evokeds_roi(smr_epochs, rest_epochs, pick, averaging_method, info=info_hbo_total):
+def make_evokeds_roi(smr_epochs, rest_epochs, pick, averaging_method='median', info=info_hbo_total, general_use=True):
     pick = get_channel_indices(pick, info)
     smr_data, rest_data = epochs_transfer(smr_epochs, rest_epochs, 
                                           picks=pick, info=info, 
@@ -26,13 +26,15 @@ def make_evokeds_roi(smr_epochs, rest_epochs, pick, averaging_method, info=info_
 
     
     smr_data, rest_data = smr_data[:, pick, :], rest_data[:, pick, :]
-    
-    if averaging_method == 'mean':
-        evoked_smr = smr_data.mean(axis=0)
-        evoked_rest = rest_data.mean(axis=0)
-    elif averaging_method == 'median':
-        evoked_smr = np.median(smr_data, axis=0)
-        evoked_rest = np.median(rest_data, axis=0)
+    if general_use:
+        if averaging_method == 'mean':
+            evoked_smr = smr_data.mean(axis=0)
+            evoked_rest = rest_data.mean(axis=0)
+        elif averaging_method == 'median':
+            evoked_smr = np.median(smr_data, axis=0)
+            evoked_rest = np.median(rest_data, axis=0)
+    else:
+        evoked_smr, evoked_rest = smr_data, rest_data
      
     return evoked_smr, evoked_rest
 
@@ -218,10 +220,15 @@ def get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ):
     return epochs, smr_epochs, rest_epochs, info_hbo_total, info_hbr_total, info_left_smz, info_right_smz, bad_channels
 
 
+# def relative_measure(arr_target, arr_rest, start=2, end=14, SFREQ=2):
+    # mean_arr_rest = np.median(arr_rest, axis=0)
+    # relation = arr_target - mean_arr_rest
+    # return np.median(relation, axis=0)
+
 def relative_measure(arr_target, arr_rest, start=2, end=14, SFREQ=2):
     mean_arr_rest = np.median(arr_rest, axis=0)
     relation = arr_target - mean_arr_rest
-    return np.median(relation, axis=0)
+    return relation
 
 # def relative_measure_topo(arr_target, arr_rest, start=2, end=14, SFREQ=2):
 #     a_rest = np.median(arr_rest[start*SFREQ:end*SFREQ])
@@ -396,7 +403,7 @@ def epochs_preparation(filename, subject, condition):
         # info_left_smz.save('info_left_smz_info.fif')
         # info_right_smz.save('info_right_smz_info.fif')
 
-def evokeds_preparation(smr_epochs, rest_epochs, max_norm, min_norm, info, normalize=True):       
+def evokeds_preparation(smr_epochs, rest_epochs, max_norm, min_norm, info, normalize=True, general_use=True):       
         evokeds_SMR_list = []
         evokeds_REST_list = []
         
@@ -406,7 +413,8 @@ def evokeds_preparation(smr_epochs, rest_epochs, max_norm, min_norm, info, norma
                                         rest_epochs=rest_epochs,
                                         pick=different_hb[curves_hb][i],
                                         averaging_method='median',
-                                        info=info
+                                        info=info,
+                                        general_use=general_use
                                         )
                 
                 evokeds_SMR_list.append(evoked_smr)
@@ -510,3 +518,25 @@ def correct_times(epochs, correct=(48)):
         epochs = epochs
         
     return epochs
+
+def make_ci(epochs_data, to_plot_around, ax, color, alpha, TMIN=TMIN, TMAX=TMAX, SFREQ=SFREQ):
+    arr = epochs_data.mean(axis=1)*1e6
+    arr_lower, arr_upper = st.t.interval(alpha=0.9, df=len(arr)-1, 
+              loc=np.median(arr, axis=0), 
+              scale=st.sem(arr)) 
+    arr_add_std = (to_plot_around + arr_upper)
+    arr_remove_std = (to_plot_around - arr_lower)
+    
+    arr_add_std = arr_upper
+    arr_remove_std = arr_lower
+    # return arr_add
+    # print('arr_mean', arr_mean)
+    
+    # print('+std', arr_add_std)
+    # print('-std', arr_remove_std)
+
+    return ax.fill_between(x=np.arange(TMIN, TMAX, 1/SFREQ), y1=arr_add_std, y2=arr_remove_std,
+                 color=color, alpha=alpha)
+    
+def ez_median(arr):
+        return np.median(arr, axis=0)

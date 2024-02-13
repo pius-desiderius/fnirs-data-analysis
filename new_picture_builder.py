@@ -48,15 +48,16 @@ for filename in subfolders:
         # info_right_smz.save('info_right_smz_info.fif')
 
         
-        evokeds_SMR_list, evokeds_REST_list = evokeds_preparation(smr_epochs, 
+        epochs_evokeds_SMR_list, epochs_evokeds_REST_list = evokeds_preparation(smr_epochs, 
                                                                   rest_epochs,
                                                                   max_norm=1,
                                                                   min_norm=2,
                                                                   info=info_hbo_total,
-                                                                  normalize=False)
+                                                                  normalize=False,
+                                                                  general_use=False)
         
-        evokeds_SMR_list = [i*1e6 for i in evokeds_SMR_list]
-        evokeds_REST_list = [i*1e6 for i in evokeds_REST_list]
+        evokeds_SMR_list = [np.mean(i*1e6, axis=1) for i in epochs_evokeds_SMR_list]
+        evokeds_REST_list = [np.mean(i*1e6, axis=1) for i in epochs_evokeds_REST_list]
 
         M1_evoked_SMR_left = evokeds_SMR_list[0]
         S1_evoked_SMR_left = evokeds_SMR_list[1]
@@ -71,7 +72,21 @@ for filename in subfolders:
         M1_evoked_REST_right = evokeds_REST_list[3]
         S1_evoked_REST_right =  evokeds_REST_list[4]
         SMZ_evoked_REST_right = evokeds_REST_list[5]
+        
+        pochs_M1_evoked_SMR_left = epochs_evokeds_SMR_list[0]
+        pochs_S1_evoked_SMR_left = epochs_evokeds_SMR_list[1]
+        pochs_SMZ_evoked_SMR_left = epochs_evokeds_SMR_list[2]
+        pochs_M1_evoked_SMR_right = epochs_evokeds_SMR_list[3]
+        pochs_S1_evoked_SMR_right =  epochs_evokeds_SMR_list[4]
+        pochs_SMZ_evoked_SMR_right = epochs_evokeds_SMR_list[5]
 
+        pochs_M1_evoked_REST_left = epochs_evokeds_REST_list[0]
+        pochs_S1_evoked_REST_left = epochs_evokeds_REST_list[1]
+        pochs_SMZ_evoked_REST_left = epochs_evokeds_REST_list[2]
+        pochs_M1_evoked_REST_right = epochs_evokeds_REST_list[3]
+        pochs_S1_evoked_REST_right =  epochs_evokeds_REST_list[4]
+        pochs_SMZ_evoked_REST_right = epochs_evokeds_REST_list[5]
+        
         if curves_hb == 'hbo':
                 evoked_SMR, evoked_REST = make_evokeds_roi(
                                                                 smr_epochs=smr_epochs, 
@@ -85,7 +100,7 @@ for filename in subfolders:
                                                                 rest_epochs=rest_epochs,
                                                                 pick=info_hbr_total['ch_names'],
                                                                 averaging_method='median')
-                
+                                
         evoked_SMR = evoked_SMR*1e6
         evoked_REST = evoked_REST*1e6
         ### RELATIVE MEASURE ERD-STYLE ###      
@@ -105,6 +120,24 @@ for filename in subfolders:
                                                 S1_evoked_REST_right, SFREQ)
         relation_SMZ_right = relative_measure(SMZ_evoked_SMR_right,
                                                 SMZ_evoked_REST_right, SFREQ)
+
+        print('pochs_shape', pochs_M1_evoked_REST_left.shape)
+        
+        z_relation_M1_left = relative_measure(pochs_M1_evoked_SMR_left,
+                                                M1_evoked_REST_left, SFREQ)
+        z_relation_S1_left = relative_measure(pochs_S1_evoked_SMR_left,
+                                                S1_evoked_REST_left, SFREQ)
+        z_relation_SMZ_left = relative_measure(pochs_SMZ_evoked_SMR_left,
+                                                SMZ_evoked_REST_left, SFREQ)
+
+        ###RELATION RIGHT###
+        z_relation_M1_right = relative_measure(pochs_M1_evoked_SMR_right,
+                                                M1_evoked_REST_right, SFREQ)
+        z_relation_S1_right = relative_measure(pochs_S1_evoked_SMR_right,
+                                                S1_evoked_REST_right, SFREQ)
+        z_relation_SMZ_right = relative_measure(pochs_SMZ_evoked_SMR_right,
+                                                SMZ_evoked_REST_right, SFREQ)
+
 
         # ## RELATIVE MEASURE OTHER STLYE ###
         # relation_M1_left = np.mean((M1_evoked_SMR_left) / (mean_rest_epoch(M1_evoked_REST_left)), axis=0)
@@ -206,15 +239,22 @@ for filename in subfolders:
         topo_width = topo_height = '30%'
 
 
-
+        print('z+relation', z_relation_M1_left.shape)
+        
         ### RELATION LEFT ####
 
-        rel_line_m1_smr, = axes[0].plot(times, relation_M1_left, label=f'M1/{curves_hb} SMR', 
+        rel_line_m1_smr, = axes[0].plot(times, ez_median(relation_M1_left), label=f'M1/{curves_hb} SMR', 
                 color=fnirs_colors['hbr'])
-        rel_line_s1_smr, = axes[0].plot(times, relation_S1_left, label=f'S1/{curves_hb} SMR', 
+        make_ci(ax=axes[0], to_plot_around=ez_median(relation_M1_left), epochs_data=z_relation_M1_left, alpha=0.2,  color=fnirs_colors['hbr'])
+
+        rel_line_s1_smr, = axes[0].plot(times, ez_median(relation_S1_left), label=f'S1/{curves_hb} SMR', 
                 color=fnirs_colors['hbo'])
-        rel_line_smz_smr, = axes[0].plot(times, relation_SMZ_left, label=f'SMA/{curves_hb} SMR', 
+        make_ci(ax=axes[0], to_plot_around=ez_median(relation_S1_left), epochs_data=z_relation_S1_left, alpha=0.2,  color=fnirs_colors['hbo'])
+
+        rel_line_smz_smr, = axes[0].plot(times, ez_median(relation_SMZ_left), label=f'SMA/{curves_hb} SMR', 
                 color=fnirs_colors['hbt'])
+        make_ci(ax=axes[0], to_plot_around=ez_median(relation_SMZ_left), epochs_data=z_relation_SMZ_left, alpha=0.2,  color=fnirs_colors['hbt'])
+
 
         fill_1 = filler_between(axes[0], ylims)
 
@@ -251,12 +291,17 @@ for filename in subfolders:
 
         ### RELATION RIGHT ###
 
-        axes[1].plot(times, relation_M1_right, label=f'M1/{curves_hb} SMR', 
+        rel_line_m1_smr, = axes[1].plot(times, ez_median(relation_M1_left), label=f'M1/{curves_hb} SMR', 
                 color=fnirs_colors['hbr'])
-        axes[1].plot(times, relation_S1_right, label=f'S1/{curves_hb} SMR', 
+        make_ci(ax=axes[0], to_plot_around=ez_median(relation_M1_left), epochs_data=z_relation_M1_left, alpha=0.2,  color=fnirs_colors['hbr'])
+
+        rel_line_s1_smr, = axes[1].plot(times, ez_median(relation_S1_left), label=f'S1/{curves_hb} SMR', 
                 color=fnirs_colors['hbo'])
-        axes[1].plot(times, relation_SMZ_right, label=f'SMA/{curves_hb} SMR', 
+        make_ci(ax=axes[0], to_plot_around=ez_median(relation_S1_left), epochs_data=z_relation_S1_left, alpha=0.2,  color=fnirs_colors['hbo'])
+
+        rel_line_smz_smr, = axes[1].plot(times, ez_median(relation_SMZ_left), label=f'SMA/{curves_hb} SMR', 
                 color=fnirs_colors['hbt'])
+        make_ci(ax=axes[0], to_plot_around=ez_median(relation_SMZ_left), epochs_data=z_relation_SMZ_left, alpha=0.2,  color=fnirs_colors['hbt'])
 
 
         fill_1 = filler_between(axes[1], ylims)
@@ -310,18 +355,35 @@ for filename in subfolders:
         ylims=(-8, 12)
         ### LEFT PART ###
 
-        line_m1_smr, = axes[0].plot(times, M1_evoked_SMR_left.mean(axis=0), label=f'M1/{curves_hb} SMR', 
+        print('pochs', M1_evoked_SMR_left.shape)
+
+        
+        line_m1_smr, = axes[0].plot(times, ez_median(M1_evoked_SMR_left), label=f'M1/{curves_hb} SMR', 
                 color=fnirs_colors['hbr'])
-        line_s1_smr, = axes[0].plot(times, S1_evoked_SMR_left.mean(axis=0), label=f'S1/{curves_hb} SMR', 
+        make_ci(ax=axes[0], to_plot_around=ez_median(M1_evoked_SMR_left), epochs_data=pochs_M1_evoked_SMR_left, alpha=0.2,  color=fnirs_colors['hbr'])
+
+        line_s1_smr, = axes[0].plot(times, ez_median(S1_evoked_SMR_left), label=f'S1/{curves_hb} SMR', 
                 color=fnirs_colors['hbo'])
-        line_smz_smr, = axes[0].plot(times, SMZ_evoked_SMR_left.mean(axis=0), label=f'SMA/{curves_hb} SMR', 
+        make_ci(ax=axes[0], to_plot_around=ez_median(S1_evoked_SMR_left), epochs_data=pochs_S1_evoked_SMR_left, alpha=0.2,  color=fnirs_colors['hbo'])
+
+        line_smz_smr, = axes[0].plot(times, ez_median(SMZ_evoked_SMR_left), label=f'SMA/{curves_hb} SMR', 
                 color=fnirs_colors['hbt'])
-        line_m1_rest, = axes[0].plot(times, M1_evoked_REST_left.mean(axis=0), label=f'M1/{curves_hb} REST', 
+        make_ci(ax=axes[0], to_plot_around=ez_median(SMZ_evoked_SMR_left), epochs_data=pochs_SMZ_evoked_SMR_left, alpha=0.2,  color=fnirs_colors['hbt'])
+
+        
+        line_m1_rest, = axes[0].plot(times, ez_median(M1_evoked_REST_left), label=f'M1/{curves_hb} REST', 
                 color=fnirs_colors['hbr'], linestyle='--')
-        line_s1_rest, = axes[0].plot(times, S1_evoked_REST_left.mean(axis=0), label=f'S1/{curves_hb} REST', 
+        make_ci(ax=axes[0], to_plot_around=ez_median(M1_evoked_REST_left), epochs_data=pochs_M1_evoked_REST_left, alpha=0.1,  color=fnirs_colors['hbr'])
+
+        line_s1_rest, = axes[0].plot(times, ez_median(S1_evoked_REST_left), label=f'S1/{curves_hb} REST', 
                 color=fnirs_colors['hbo'], linestyle='--')
-        line_smz_rest, = axes[0].plot(times, SMZ_evoked_REST_left.mean(axis=0), label=f'SMA/{curves_hb} REST', 
+        make_ci(ax=axes[0], to_plot_around=ez_median(S1_evoked_REST_left), epochs_data=pochs_S1_evoked_REST_left, alpha=0.1,  color=fnirs_colors['hbo'])
+
+        
+        line_smz_rest, = axes[0].plot(times, ez_median(SMZ_evoked_REST_left), label=f'SMA/{curves_hb} REST', 
                 color=fnirs_colors['hbt'], linestyle='--')
+        make_ci(ax=axes[0], to_plot_around=ez_median(SMZ_evoked_REST_left), epochs_data=pochs_SMZ_evoked_REST_left, alpha=0.1,  color=fnirs_colors['hbt'])
+
 
         fill_1 = filler_between(axes[0], ylims)
 
@@ -347,18 +409,32 @@ for filename in subfolders:
                                 linewidth=topo_linewidth)
 
         ### RIGHT PART ###
-        axes[1].plot(times, M1_evoked_SMR_right.mean(axis=0), label=f'M1/{curves_hb} SMR', 
+        line_m1_smr, = axes[1].plot(times, ez_median(M1_evoked_SMR_right), label=f'M1/{curves_hb} SMR', 
                 color=fnirs_colors['hbr'])
-        axes[1].plot(times, S1_evoked_SMR_right.mean(axis=0), label=f'S1/{curves_hb} SMR', 
+        make_ci(ax=axes[1], to_plot_around=ez_median(M1_evoked_SMR_right), epochs_data=pochs_M1_evoked_SMR_right, alpha=0.2,  color=fnirs_colors['hbr'])
+
+        line_s1_smr, = axes[1].plot(times, ez_median(S1_evoked_SMR_right), label=f'S1/{curves_hb} SMR', 
                 color=fnirs_colors['hbo'])
-        axes[1].plot(times, SMZ_evoked_SMR_right.mean(axis=0), label=f'SMA/{curves_hb} SMR', 
+        make_ci(ax=axes[1], to_plot_around=ez_median(S1_evoked_SMR_right), epochs_data=pochs_S1_evoked_SMR_right, alpha=0.2,  color=fnirs_colors['hbo'])
+
+        line_smz_smr, = axes[1].plot(times, ez_median(SMZ_evoked_SMR_right), label=f'SMA/{curves_hb} SMR', 
                 color=fnirs_colors['hbt'])
-        axes[1].plot(times, M1_evoked_REST_right.mean(axis=0), label=f'M1/{curves_hb} REST', 
+        make_ci(ax=axes[1], to_plot_around=ez_median(SMZ_evoked_SMR_right), epochs_data=pochs_SMZ_evoked_SMR_right, alpha=0.2,  color=fnirs_colors['hbt'])
+
+        
+        line_m1_rest, = axes[1].plot(times, ez_median(M1_evoked_REST_right), label=f'M1/{curves_hb} REST', 
                 color=fnirs_colors['hbr'], linestyle='--')
-        axes[1].plot(times, S1_evoked_REST_right.mean(axis=0), label=f'S1/{curves_hb} REST', 
+        make_ci(ax=axes[1], to_plot_around=ez_median(M1_evoked_REST_right), epochs_data=pochs_M1_evoked_REST_right, alpha=0.1,  color=fnirs_colors['hbr'])
+
+        line_s1_rest, = axes[1].plot(times, ez_median(S1_evoked_REST_right), label=f'S1/{curves_hb} REST', 
                 color=fnirs_colors['hbo'], linestyle='--')
-        axes[1].plot(times, SMZ_evoked_REST_right.mean(axis=0), label=f'SMA/{curves_hb} REST', 
+        make_ci(ax=axes[1], to_plot_around=ez_median(S1_evoked_REST_right), epochs_data=pochs_S1_evoked_REST_right, alpha=0.1,  color=fnirs_colors['hbo'])
+
+        
+        line_smz_rest, = axes[1].plot(times, ez_median(SMZ_evoked_REST_right), label=f'SMA/{curves_hb} REST', 
                 color=fnirs_colors['hbt'], linestyle='--')
+        make_ci(ax=axes[1], to_plot_around=ez_median(SMZ_evoked_REST_right), epochs_data=pochs_SMZ_evoked_REST_right, alpha=0.1,  color=fnirs_colors['hbt'])
+
 
         fill_2 = filler_between(axes[1], ylims)
 
@@ -422,14 +498,17 @@ for filename in subfolders:
                 return final_timestamp, prevalent_side
 
         TIME_RANGE = [int((4-TMIN)*SFREQ), int((12-TMIN)*SFREQ)]
-        final_timestamp, prevalent_side = get_max_time(f'{CONDITION}_LEFT', f'{CONDITION}_RIGHT')
-        rel_final_timestamp, rel_prevalent_side = get_max_time(f'rel_{CONDITION}_LEFT', 
-                                                                f'rel_{CONDITION}_RIGHT')
-        LOWER_TIME, UPPER_TIME = final_timestamp-1*SFREQ, final_timestamp+1*SFREQ
-        peak_time = final_timestamp/SFREQ + 4
+        # final_timestamp, prevalent_side = get_max_time(f'{CONDITION}_LEFT', f'{CONDITION}_RIGHT')
+        # rel_final_timestamp, rel_prevalent_side = get_max_time(f'rel_{CONDITION}_LEFT', 
+                                                                # f'rel_{CONDITION}_RIGHT')
+        # LOWER_TIME, UPPER_TIME = final_timestamp-1*SFREQ, final_timestamp+1*SFREQ
+        # peak_time = final_timestamp/SFREQ + 4
         
-        smr_in_peak_timestamp = np.median(evoked_SMR[:, LOWER_TIME+TIME_RANGE[0] : UPPER_TIME+TIME_RANGE[0]], axis=1)
-        rest_in_peak_timestamp = np.median(evoked_REST[:, LOWER_TIME+TIME_RANGE[0] : UPPER_TIME+TIME_RANGE[0]], axis=1)
+        # smr_in_peak_timestamp = np.median(evoked_SMR[:, LOWER_TIME+TIME_RANGE[0] : UPPER_TIME+TIME_RANGE[0]], axis=1)
+        # rest_in_peak_timestamp = np.median(evoked_REST[:, LOWER_TIME+TIME_RANGE[0] : UPPER_TIME+TIME_RANGE[0]], axis=1)
+        
+        smr_in_peak_timestamp = np.median(evoked_SMR[:, TIME_RANGE[0]:TIME_RANGE[1]], axis=1)
+        rest_in_peak_timestamp = np.median(evoked_REST[:, TIME_RANGE[0]:TIME_RANGE[1]], axis=1)
         
         
         top_n_chans = 10
@@ -478,12 +557,20 @@ for filename in subfolders:
                                 show=False)
 
         ### TITLES ###
+        # axes[0].set_title(
+        #         f'Topography of {curves_hb} in subject {SUBJECT}\n in {CONDITION} in time range {np.round(peak_time-1, decimals=1)}:{np.round(peak_time+1, decimals=1)}s',
+        # fontsize=18)
+
+        # axes[1].set_title(
+        #         f'Topography of {curves_hb} in subject {SUBJECT}\n in REST  in time range {np.round(peak_time-1, decimals=1)}:{np.round(peak_time+1, decimals=1)}s',
+        # fontsize=18)
+        
         axes[0].set_title(
-                f'Topography of {curves_hb} in subject {SUBJECT}\n in {CONDITION} in time range {np.round(peak_time-1, decimals=1)}:{np.round(peak_time+1, decimals=1)}s',
+                f'Topography of {curves_hb} in subject {SUBJECT}\n in {CONDITION} in time range {TIME_RANGE[0]/SFREQ+TMIN}:{TIME_RANGE[1]/SFREQ+TMIN}s',
         fontsize=18)
 
         axes[1].set_title(
-                f'Topography of {curves_hb} in subject {SUBJECT}\n in REST  in time range {np.round(peak_time-1, decimals=1)}:{np.round(peak_time+1, decimals=1)}s',
+                f'Topography of {curves_hb} in subject {SUBJECT}\n in REST  in time range {TIME_RANGE[0]/SFREQ+TMIN}:{TIME_RANGE[1]/SFREQ+TMIN}s',
         fontsize=18)
 
         ### COLORBAR SETTINGS ###
@@ -517,9 +604,13 @@ for filename in subfolders:
         
         # print('SHIT', rel_evoked.shape)
         # topo_rel = relative_measure_topo(evoked_SMR, evoked_REST, SFREQ)
-        LOWER_TIME, UPPER_TIME = rel_final_timestamp-1*SFREQ, rel_final_timestamp+1*SFREQ
+        # LOWER_TIME, UPPER_TIME = rel_final_timestamp-1*SFREQ, rel_final_timestamp+1*SFREQ
         
-        rel_smr_in_peak_timestamp = np.median(rel_evoked[:, LOWER_TIME+TIME_RANGE[0] : UPPER_TIME+TIME_RANGE[0]], axis=1)
+        # rel_smr_in_peak_timestamp = np.median(rel_evoked[:, LOWER_TIME+TIME_RANGE[0] : UPPER_TIME+TIME_RANGE[0]], axis=1)
+        
+        rel_smr_in_peak_timestamp = np.median(rel_evoked[:, TIME_RANGE[0]:TIME_RANGE[1]], axis=1)
+
+        
         rel_mask_SMR, rel_top_dict_SMR = get_top_channels_mask(rel_smr_in_peak_timestamp, 
                                                         info_hbo_total, 
                                                         top_n_chans)
@@ -547,7 +638,7 @@ for filename in subfolders:
 
         ### TITLES ###
         ax.set_title(
-                f'Topography of {curves_hb} in subject {SUBJECT}\n in {CONDITION} in time range {np.round(peak_time-1, decimals=1)}:{np.round(peak_time+1, decimals=1)}s',
+                f'Topography of {curves_hb} in subject {SUBJECT}\n in {CONDITION}  in time range {TIME_RANGE[0]/SFREQ+TMIN}:{TIME_RANGE[1]/SFREQ+TMIN}s',
         fontsize=18)
 
 
@@ -574,10 +665,10 @@ for filename in subfolders:
         SUBJECT=SUBJECT,
         CONDITION=CONDITION,
         BAD_CHANNELS=bad_channels,
-        T_MAX_HEMO=(final_timestamp+TMIN)/SFREQ,
-        T_MAX_REL=(rel_final_timestamp+TMIN)/SFREQ,
-        PREVALENCE_HEMO=prevalent_side,
-        PREVALENCE_REL=rel_prevalent_side
+        # T_MAX_HEMO=(final_timestamp+TMIN)/SFREQ,
+        # T_MAX_REL=(rel_final_timestamp+TMIN)/SFREQ,
+        # PREVALENCE_HEMO=prevalent_side,
+        # PREVALENCE_REL=rel_prevalent_side
         )
         from collections import OrderedDict
 
