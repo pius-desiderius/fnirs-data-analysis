@@ -1,9 +1,9 @@
 #DEFINE SAMPLING RATE
-SFREQ = 3
+SFREQ = 2
 
 #DEFINE EPOCHS LIMITS
 TMIN = float(-2.0)
-TMAX = float(14.0)
+TMAX = float(14.5)
 
 #DEFINE EPOCHS LABELS
 EPOCHS_LABEL_REST = 'REST'
@@ -34,26 +34,50 @@ curves_hb = 'hbo'
 # )
 
 #DEFINE PATHNAMES FOR DIRECTORIES
-DIRS_TO_SAVE_STUFF = dict( 
-                          epochs_folder = r"./epochs",
+# DIRS_TO_SAVE_STUFF = dict( 
+#                           epochs_folder = r"../fnirs_infos/epochs",
                           
-                            haemo_folder_path = r"./haemodynamics",
-                            haemo_folder_path_np = r"./haemodynamics_np",
+#                             haemo_folder_path = r"../fnirs_infos/haemodynamics",
+#                             haemo_folder_path_np = r"../fnirs_infos/haemodynamics_np",
                             
-                            relation_path = r"./relation",
-                            relation_path_np = r"./relation_np",
+#                             relation_path = r"../fnirs_infos/relation",
+#                             relation_path_np = r"../fnirs_infos/relation_np",
                             
-                            topo_path = r"./topomaps",
-                            topo_path_np = r"./topomaps_np",
+#                             topo_path = r"../fnirs_infos/topomaps",
+#                             topo_path_np = r"../fnirs_infos/topomaps_np",
                             
-                            evokeds_ = r'./evokeds_np',
-                            evokeds_rel = r'./evokeds_rel_np',
+#                             evokeds_ = r'../fnirs_infos/evokeds_np',
+#                             evokeds_rel = r'../fnirs_infos/evokeds_rel_np',
                             
-                            topo_rel_path = r"./topomaps_rel",
-                            topo_rel_path_np = r"./topomaps_rel_np",
+#                             topo_rel_path = r"../fnirs_infos/topomaps_rel",
+#                             topo_rel_path_np = r"../fnirs_infos/topomaps_rel_np",
                             
-                            all_epochs = r'./all_epochs'
+#                             all_epochs = r'../fnirs_infos/all_epochs'
+# )
+
+DIRS_TO_SAVE_STUFF = dict( 
+                          epochs_folder = r"../fnirs_pics/epochs",
+                          
+                            haemo_folder_path = r"../fnirs_pics/haemodynamics",
+                            haemo_folder_SMA_path = r"../fnirs_pics/haemodynamics_SMA",
+                            haemo_folder_path_np = r"../fnirs_pics/haemodynamics_np",
+                            
+                            relation_path = r"../fnirs_pics/relation",
+                            relation_SMA_path = r"../fnirs_pics/relation_SMA",
+                            relation_path_np = r"../fnirs_pics/relation_np",
+                            
+                            topo_path = r"../fnirs_pics/topomaps",
+                            topo_path_np = r"../fnirs_pics/topomaps_np",
+                            
+                            evokeds_ = r'../fnirs_pics/evokeds_np',
+                            evokeds_rel = r'../fnirs_pics/evokeds_rel_np',
+                            
+                            topo_rel_path = r"../fnirs_pics/topomaps_rel",
+                            topo_rel_path_np = r"../fnirs_pics/topomaps_rel_np",
+                            
+                            all_epochs = r'../fnirs_pics/all_epochs'
 )
+
 
 
 DROP_CHANS = [

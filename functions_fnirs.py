@@ -148,20 +148,20 @@ def get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ):
 
     raw_intensity = mne.io.read_raw_nirx(filename, verbose=False)
     raw_od = optical_density(raw_intensity) #from row wavelength data
+    raw_od.apply_function(detrender, picks=raw_od.ch_names)
     raw_od_shorts = mne_nirs.channels.get_short_channels(raw_od)
     raw_od.drop_channels(DROP_CHANS) #we had a non-existent channel
     raw_od = raw_od.filter(**FILTER_DICT)
     raw_od = mne_nirs.signal_enhancement.short_channel_regression(raw_od)
     raw_od = mne_nirs.channels.get_long_channels(raw_od)
     raw_od = temporal_derivative_distribution_repair(raw_od)
-    raw_od.apply_function(detrender, picks=raw_od.ch_names)
 
     raw_od_unfiltered = raw_od.copy() #repairs movement artifacts
 
     ### BAD CHANNELS ###
     channel_std = np.std(raw_od.copy().pick([i for i in raw_od.ch_names if '760' in i]).get_data(), 
                          axis=(1))
-    deviant_channels_idx = np.argpartition(channel_std, -10)[-10:]
+    deviant_channels_idx = np.argpartition(channel_std, -12)[-12:]
     bad_channels_hbo = [raw_od.copy().pick([i for i in raw_od.ch_names if '760' in i]).ch_names[i]
                    for i in deviant_channels_idx]
     bad_channels_hbr = [i.replace('760', '850') for i in bad_channels_hbo]
@@ -212,7 +212,7 @@ def get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ):
     info_hbo_total = epochs.copy().pick_types(fnirs='hbo').info
     info_hbr_total = epochs.copy().pick_types(fnirs='hbr').info
 
-    epochs.pick(['hbo'])
+    # epochs.pick(['hbo'])
     
     rest_epochs = epochs['REST']
     smr_epochs = epochs['SMR']
@@ -378,7 +378,15 @@ def epochs_preparation(filename, subject, condition):
         info_left_smz, info_right_smz, bad_channels = get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ)
         
         smr_epochs, rest_epochs = smr_epochs.get_data(), rest_epochs.get_data()
+
+        smr_epochs = hbt(smr_epochs)
+        rest_epochs = hbt(rest_epochs)
+
+        # smr_epochs = oxy(smr_epochs)
+        # rest_epochs = oxy(rest_epochs)
+            
         
+
         smr_epochs, rest_epochs = correct_times(smr_epochs), correct_times(rest_epochs)
         
         smr_epochs, rest_epochs = epochs_transfer(smr_epochs, rest_epochs, 
@@ -386,9 +394,9 @@ def epochs_preparation(filename, subject, condition):
                                                   picks=SMZ_LEFT_ROI_HBO)
         
         bool_mask_smr = epochs_rejector(epochs=smr_epochs, criterion='minimum',
-                                        ch_pick=SMZ_LEFT_ROI_HBO, lower=0.25, upper=1.0, time_limits=(7, 14), info=info_hbo_total)
+                                        ch_pick=SMZ_LEFT_ROI_HBO, lower=0.25, upper=1.0, time_limits=(4, 14), info=info_hbo_total)
         bool_mask_rest = epochs_rejector(epochs=rest_epochs, criterion='maximum',
-                                         ch_pick=SMZ_LEFT_ROI_HBO, lower=0.0, upper=0.75, time_limits=(7,14), info=info_hbo_total)
+                                         ch_pick=SMZ_LEFT_ROI_HBO, lower=0.0, upper=0.75, time_limits=(4, 14), info=info_hbo_total)
 
         smr_epochs = smr_epochs[~bool_mask_smr]
         rest_epochs = rest_epochs[~bool_mask_rest]
@@ -511,16 +519,25 @@ def info_list(epochs):
         info = a.info
         info_list.append(info)
     
-def correct_times(epochs, correct=(48)):
-    if epochs.shape[2] != 48:
-        epochs = np.delete(epochs, 48, axis=2)
+def correct_times(epochs, SFREQ=SFREQ, TMIN=TMIN, TMAX=TMAX):
+    correct = int((TMAX - TMIN) * SFREQ)
+    if epochs.shape[2] != correct:
+        epochs = np.delete(epochs, correct, axis=2)
     else:
         epochs = epochs
         
     return epochs
 
-def make_ci(epochs_data, to_plot_around, ax, color, alpha, TMIN=TMIN, TMAX=TMAX, SFREQ=SFREQ):
-    arr = epochs_data.mean(axis=1)*1e6
+def make_ci(epochs_data, to_plot_around, ax, color, alpha, TMIN=TMIN, TMAX=TMAX, SFREQ=SFREQ, multiply=True):
+
+    if multiply:
+        arr = np.median(epochs_data, axis=1)
+        arr = arr*1e6
+    else:
+        arr = epochs_data
+
+    print('arr_shape', arr.shape)
+
     arr_lower, arr_upper = st.t.interval(alpha=0.9, df=len(arr)-1, 
               loc=np.median(arr, axis=0), 
               scale=st.sem(arr)) 
@@ -531,12 +548,35 @@ def make_ci(epochs_data, to_plot_around, ax, color, alpha, TMIN=TMIN, TMAX=TMAX,
     arr_remove_std = arr_lower
     # return arr_add
     # print('arr_mean', arr_mean)
-    
-    # print('+std', arr_add_std)
-    # print('-std', arr_remove_std)
+
+
+    print('Add std', arr_add_std)
+    print('Remove std', arr_remove_std)
 
     return ax.fill_between(x=np.arange(TMIN, TMAX, 1/SFREQ), y1=arr_add_std, y2=arr_remove_std,
                  color=color, alpha=alpha)
     
 def ez_median(arr):
         return np.median(arr, axis=0)
+    
+def replace_with_median(arr, N=5):
+    median = np.median(arr, axis=0)
+    stacked_array = np.stack([median] * N, axis=0)
+    over_stacked = np.vstack((arr, stacked_array))
+    
+    return over_stacked
+
+def hbt(arr):
+    hbo_ar = arr[:, ::2, :]
+    hbr_ar = arr[:, 1::2, :]
+    hbt_arr = hbo_ar + hbr_ar
+    
+    return hbt_arr
+
+def oxy(arr):
+    hbo_ar = arr[:, ::2, :]
+    hbr_ar = arr[:, 1::2, :]
+    hbt_arr = hbo_ar + hbr_ar
+    oxy = hbo_ar / hbt_arr
+    
+    return oxy

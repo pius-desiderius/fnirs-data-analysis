@@ -20,7 +20,7 @@ TMAX = float(14)
 BASELINE = (-1., 0.5)
 SFREQ = 3
 curves_hb = 'hbo'
-logging.basicConfig(filename="log_runtime.txt", format="%(message)s", filemode="w", level=logging.INFO)
+logging.basicConfig(filename="../fnirs_infos/log_runtime.txt", format="%(message)s", filemode="w", level=logging.INFO)
 
 fnirs_dir = "/mnt/diskus/fNIRS data ME_MI_TS_TI_SA"
 subfolders = fast_scandir(fnirs_dir)

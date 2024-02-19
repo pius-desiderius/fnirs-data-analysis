@@ -8,7 +8,11 @@ M1_LEFT_ROI_HBO = [
   'S9_D10 hbo',
   'S10_D13 hbo',
   'S6_D13 hbo',
-  'S10_D16 hbo'
+  'S10_D16 hbo',
+  
+  'S13_D12 hbo',
+  'S16_D13 hbo',
+  'S10_D19 hbo'
 ]
 M1_LEFT_ROI_HBR = [i.replace('hbo', 'hbr') for i in M1_LEFT_ROI_HBO]
 M1_LEFT_ROI = M1_LEFT_ROI_HBO + M1_LEFT_ROI_HBR
@@ -21,18 +25,22 @@ S1_LEFT_ROI_HBO = [
   'S20_D18 hbo',
   'S19_D18 hbo',
   'S23_D18 hbo',
+  
+  'S15_D12 hbo',
+  'S16_D16 hbo',
+  'S13_D18 hbo'
 ]
 S1_LEFT_ROI_HBR = [i.replace('hbo', 'hbr') for i in S1_LEFT_ROI_HBO]
 S1_LEFT_ROI = S1_LEFT_ROI_HBO + S1_LEFT_ROI_HBR
 
 REMAINING_LEFT_ROI_HBO = [
-  'S13_D12 hbo',
-  'S13_D18 hbo',
+  # 'S13_D12 hbo',
+  # 'S13_D18 hbo',
   'S9_D18 hbo',
-  'S16_D16 hbo',
-  'S16_D13 hbo',
-  'S15_D12 hbo',
-  'S10_D19 hbo'
+  # 'S16_D16 hbo',
+  # 'S16_D13 hbo',
+  # 'S15_D12 hbo',
+  # 'S10_D19 hbo'
 ]
 REMAINING_LEFT_ROI_HBR = [i.replace('hbo', 'hbr') for i in REMAINING_LEFT_ROI_HBO]
 REMAINING_LEFT_ROI = REMAINING_LEFT_ROI_HBR + REMAINING_LEFT_ROI_HBO
