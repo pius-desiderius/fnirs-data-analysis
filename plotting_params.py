@@ -6,20 +6,33 @@ fnirs_colors = dict(
     hbr='#004E7C',
   )
 
+def rgb(hex_color, alpha):
+    """Converts a hex color code to RGBA format with specified alpha value."""
+    # Remove '#' from hex color code and convert to integer
+    hex_color = hex_color.lstrip('#')
+    rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    # Convert RGB to RGBA format with specified alpha value
+    rgba = (rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, alpha)
+    return rgba
+  
+alpha = 0.5
+transparent_blue, blue = rgb(fnirs_colors['hbr'], alpha), rgb(fnirs_colors['hbr'], 0.95)
+transparent_red, red = rgb(fnirs_colors['hbo'], alpha), rgb(fnirs_colors['hbo'], 0.95)
+
 legend_params_dict = dict(
                             loc='center', 
-                            fontsize=11,       
-                            borderpad=1.5, 
+                            fontsize=13,       
+                            borderpad=1.0, 
                             labelspacing=1.5,
-                            markerscale=10, 
-                            framealpha=0
+                            markerscale=12, 
+                            framealpha=.75
 )
 
 curves_subplot_params = dict(
  top=0.92,
  bottom=0.11,
  left=0.065,
- right=0.945,
+ right=0.965,
  hspace=0.2,
  wspace=0.35
 )

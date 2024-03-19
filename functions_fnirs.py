@@ -2,13 +2,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mne
 import mne_nirs
+import json
 import scipy.signal as sg
 from mne.preprocessing.nirs import optical_density, beer_lambert_law
 from mne_nirs.signal_enhancement import enhance_negative_correlation
 
 from mne.preprocessing.nirs import (optical_density,
                                     temporal_derivative_distribution_repair)
-
+import pingouin as pg
 from mne import events_from_annotations
 from meta import *
 from ROI import *
@@ -146,7 +147,7 @@ def detrender(data):
 
 def get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ):
 
-    raw_intensity = mne.io.read_raw_nirx(filename, verbose=False)
+    raw_intensity = mne.io.read_raw_nirx(filename, verbose=False, preload=True)
     raw_od = optical_density(raw_intensity) #from row wavelength data
     raw_od.apply_function(detrender, picks=raw_od.ch_names)
     raw_od_shorts = mne_nirs.channels.get_short_channels(raw_od)
@@ -158,22 +159,31 @@ def get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ):
 
     raw_od_unfiltered = raw_od.copy() #repairs movement artifacts
 
-    ### BAD CHANNELS ###
-    channel_std = np.std(raw_od.copy().pick([i for i in raw_od.ch_names if '760' in i]).get_data(), 
-                         axis=(1))
-    deviant_channels_idx = np.argpartition(channel_std, -12)[-12:]
-    bad_channels_hbo = [raw_od.copy().pick([i for i in raw_od.ch_names if '760' in i]).ch_names[i]
-                   for i in deviant_channels_idx]
-    bad_channels_hbr = [i.replace('760', '850') for i in bad_channels_hbo]
-    bad_channels = bad_channels_hbo + bad_channels_hbr
+    # ## BAD CHANNELS ###
+    # channel_std = np.abs(np.std(raw_od.copy().pick([i for i in raw_od.ch_names if '760' in i]).get_data(), 
+    #                     axis=(1)))
+    # # print(channel_std)
+    # biggest_indices = np.argpartition(channel_std, -20)[-20:]
+    # smallest_indices = np.argpartition(channel_std,  5)[:5]
+    # smallest_indices_list = smallest_indices.tolist()
+    # biggest_indices_list = biggest_indices.tolist()
+    # deviant_channels_idx = biggest_indices_list + smallest_indices_list
 
-    raw_od.info['bads'] = bad_channels
-    raw_od.interpolate_bads(method={'fnirs':'nearest'})
+    # bad_channels_hbo = [raw_od.copy().pick([i for i in raw_od.ch_names if '760' in i]).ch_names[i]
+    #             for i in deviant_channels_idx]
+    # bad_channels_hbr = [i.replace('760', '850') for i in bad_channels_hbo]
+    # bad_channels = bad_channels_hbo + bad_channels_hbr
+    # raw_od.info['bads'] = bad_channels
+    # raw_od.interpolate_bads()
+
+        
     # raw_od.apply_function(rolling_mean_filter, picks=raw_od.ch_names)
 
 
     raw_haemo = beer_lambert_law(raw_od, ppf=0.1) #from wavelength to HbO\HbR
     raw_haemo = enhance_negative_correlation(raw_haemo)
+    # raw_haemo.info['bads'] = bad_all
+    # raw_haemo.interpolate_bads()
     ######################################
     ids_target= 'SMR'
     ids_rest = 'REST'
@@ -202,22 +212,49 @@ def get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ):
                         verbose=False,
                         # picks=picks
                     )
-
     epochs.resample(SFREQ)
-
     info_left_smz = epochs.copy().pick(different_roi['SMZ'][0])
     info_right_smz = epochs.copy().pick(different_roi['SMZ'][2])
-
-
     info_hbo_total = epochs.copy().pick_types(fnirs='hbo').info
     info_hbr_total = epochs.copy().pick_types(fnirs='hbr').info
-
-    # epochs.pick(['hbo'])
+    epochs.pick(['hbo'])
     
     rest_epochs = epochs['REST']
     smr_epochs = epochs['SMR']
     
-    return epochs, smr_epochs, rest_epochs, info_hbo_total, info_hbr_total, info_left_smz, info_right_smz, bad_channels
+    data = np.abs(smr_epochs.get_data().mean(axis=(0, 2))) + np.abs(rest_epochs.get_data().mean(axis=(0, 2)))
+    indices = np.argpartition(data, -10)[-10:]
+
+    bad_channels_hbo = [raw_haemo.copy().pick([i for i in raw_haemo.ch_names if 'hbo' in i]).ch_names[i]
+                for i in indices]
+    bad_channels_hbo = list(set(bad_channels_hbo+blue_dot)-set(SMZ_LEFT_ROI_HBO))
+    bad_channels_hbr = [i.replace('hbo', 'hbr') for i in bad_channels_hbo]
+    bad_channels = bad_channels_hbo + bad_channels_hbr
+    raw_haemo.info['bads'] = bad_channels
+    raw_haemo.interpolate_bads()
+    
+    
+    epochs = mne.Epochs(
+                        raw=raw_haemo,
+                        events=events,
+                        event_id=ids,
+                        baseline=BASELINE,
+                        tmin=TMIN,
+                        tmax=TMAX,
+                        preload=True,
+                        verbose=False,
+                        # picks=picks
+                    )
+    epochs.resample(SFREQ)
+    epochs.pick(['hbo'])
+    
+    rest_epochs = epochs['REST']
+    smr_epochs = epochs['SMR']
+    
+    
+    
+    
+    return epochs, smr_epochs, rest_epochs, info_hbo_total, info_hbr_total, info_left_smz, info_right_smz, 'peeps'
 
 
 # def relative_measure(arr_target, arr_rest, start=2, end=14, SFREQ=2):
@@ -226,7 +263,7 @@ def get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ):
     # return np.median(relation, axis=0)
 
 def relative_measure(arr_target, arr_rest, start=2, end=14, SFREQ=2):
-    mean_arr_rest = np.median(arr_rest, axis=0)
+    mean_arr_rest = np.mean(arr_rest, axis=0)
     relation = arr_target - mean_arr_rest
     return relation
 
@@ -264,7 +301,7 @@ def set_axis_properties(ax, ylims, tlims, title,
     for i in ax.spines.values():
        i.set_linewidth(linewidth)
 
-    ax.set_title(title, fontsize=title_size)
+    ax.set_title(title, fontsize=title_size, loc='center')
 
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -276,13 +313,13 @@ def set_axis_properties(ax, ylims, tlims, title,
         ax.legend(loc='lower center')
         
         
-def filler_between(ax, ylims):
+def filler_between(ax, ylims, alpha=0.2):
 
     return ax.fill_between( [0, 4], 
-                                ylims[0]/3, 
-                                ylims[1]/3, 
+                                ylims[0], 
+                                ylims[1], 
                                 color='#576767', 
-                                alpha=0.15, 
+                                alpha=alpha, 
                                 label='Task duration')
     
 def get_top_channels_mask(arr, info, top_n=10):
@@ -320,9 +357,9 @@ def subject_norms_getter(filename):
 
         
         bool_mask_smr = epochs_rejector(epochs=smr_epochs, criterion='minimum', info=info_hbo_total,
-                                        ch_pick=SMZ_LEFT_ROI_HBO, lower=0.25, upper=1.0, time_limits=(7, 14))
+                                        ch_pick=SMZ_LEFT_ROI_HBO, lower=0.0, upper=0.75, time_limits=(5, 13))
         bool_mask_rest = epochs_rejector(epochs=rest_epochs, criterion='maximum', info=info_hbo_total,
-                                         ch_pick=SMZ_LEFT_ROI_HBO, lower=0.0, upper=0.75, time_limits=(7,14))
+                                         ch_pick=SMZ_LEFT_ROI_HBO, lower=0.0, upper=0.75, time_limits=(5,13))
         
         smr_epochs, rest_epochs = smr_epochs[~bool_mask_smr], rest_epochs[~bool_mask_rest]
         max_values, min_values = [], []
@@ -331,7 +368,7 @@ def subject_norms_getter(filename):
                 evoked_smr, evoked_rest = make_evokeds_roi(smr_epochs=smr_epochs,
                                         rest_epochs=rest_epochs,
                                         pick=different_hb[curves_hb][i],
-                                        averaging_method='mean'
+                                        averaging_method='median'
                                         )
                 max_smr, min_smr = minmax(evoked_smr)
                 max_rest, min_rest = minmax(evoked_rest)
@@ -378,9 +415,10 @@ def epochs_preparation(filename, subject, condition):
         info_left_smz, info_right_smz, bad_channels = get_epochs(filename, TMIN, TMAX, BASELINE, SFREQ)
         
         smr_epochs, rest_epochs = smr_epochs.get_data(), rest_epochs.get_data()
+        
 
-        smr_epochs = hbt(smr_epochs)
-        rest_epochs = hbt(rest_epochs)
+        # smr_epochs = hbt(smr_epochs)
+        # rest_epochs = hbt(rest_epochs)
 
         # smr_epochs = oxy(smr_epochs)
         # rest_epochs = oxy(rest_epochs)
@@ -390,16 +428,32 @@ def epochs_preparation(filename, subject, condition):
         smr_epochs, rest_epochs = correct_times(smr_epochs), correct_times(rest_epochs)
         
         smr_epochs, rest_epochs = epochs_transfer(smr_epochs, rest_epochs, 
-                                                  time_limits=(7, 14), info=info_hbo_total,
+                                                  time_limits=(5, 13), info=info_hbo_total,
                                                   picks=SMZ_LEFT_ROI_HBO)
         
-        bool_mask_smr = epochs_rejector(epochs=smr_epochs, criterion='minimum',
-                                        ch_pick=SMZ_LEFT_ROI_HBO, lower=0.25, upper=1.0, time_limits=(4, 14), info=info_hbo_total)
-        bool_mask_rest = epochs_rejector(epochs=rest_epochs, criterion='maximum',
-                                         ch_pick=SMZ_LEFT_ROI_HBO, lower=0.0, upper=0.75, time_limits=(4, 14), info=info_hbo_total)
+        perecentage = 0.3
+        
+        if condition == 'ME' or condition == 'MI':
+            bool_mask_smr = epochs_rejector(epochs=smr_epochs, criterion='minimum',
+                                            ch_pick=M1_LEFT_ROI_HBO, lower=perecentage, upper=1.0, time_limits=(3, 13), info=info_hbo_total)
+            bool_mask_rest = epochs_rejector(epochs=rest_epochs, criterion='maximum',
+                                            ch_pick=M1_LEFT_ROI_HBO, lower=0.0, upper=1 - perecentage, time_limits=(3, 13), info=info_hbo_total)
+        elif condition == 'TS' or condition == 'TI':
+            bool_mask_smr = epochs_rejector(epochs=smr_epochs, criterion='minimum',
+                                            ch_pick=S1_LEFT_ROI_HBO, lower=perecentage, upper=1.0, time_limits=(3, 13), info=info_hbo_total)
+            bool_mask_rest = epochs_rejector(epochs=rest_epochs, criterion='maximum',
+                                            ch_pick=S1_LEFT_ROI_HBO, lower=0.0, upper=1 - perecentage, time_limits=(3, 13), info=info_hbo_total)
+        elif condition == 'SA':
+            bool_mask_smr = epochs_rejector(epochs=smr_epochs, criterion='minimum',
+                                            ch_pick=SMZ_LEFT_ROI_HBO, lower=perecentage, upper=1.0, time_limits=(3, 13), info=info_hbo_total)
+            bool_mask_rest = epochs_rejector(epochs=rest_epochs, criterion='maximum',
+                                            ch_pick=SMZ_LEFT_ROI_HBO, lower=0.0, upper=1 - perecentage, time_limits=(3, 13), info=info_hbo_total)
 
         smr_epochs = smr_epochs[~bool_mask_smr]
         rest_epochs = rest_epochs[~bool_mask_rest]
+        
+        smr_epochs = apply_correction(smr_epochs, CONDITION=condition, SUBJ_NAME=subject)
+
  
         np.save(f'{DIRS_TO_SAVE_STUFF["epochs_folder"]}/{subject}_{condition}_REST_EPOCHS.npy', rest_epochs)
         np.save(f'{DIRS_TO_SAVE_STUFF["epochs_folder"]}/{subject}_{condition}_SMR_EPOCHS.npy', smr_epochs)
@@ -482,7 +536,6 @@ def epochs_transfer(TARGET, REST, picks, info, sfreq=SFREQ, time_limits=[5, 12])
     TARGET_data = TARGET
     REST_data = REST
 
-    print(TARGET_data.shape)
     # Calculate median for each epoch in TARGET
     median_tgt = np.median(TARGET_data[:, picks_idx, time_limits[0]:time_limits[1]], axis=(1,2))
     # Calculate median for each epoch in REST
@@ -510,12 +563,12 @@ def epochs_transfer(TARGET, REST, picks, info, sfreq=SFREQ, time_limits=[5, 12])
 
 def get_channel_indices(channel_names, info):
   
-    return mne.pick_channels(info['ch_names'], include=channel_names)
+    return mne.pick_channels(info['ch_names'], include=channel_names, ordered=False)
 
 def info_list(epochs):
     info_list = []
     for i in range(6):
-        a = epochs.pick_channels(different_hb[curves_hb][i])
+        a = epochs.pick_channels(different_hb[curves_hb][i], ordered=False)
         info = a.info
         info_list.append(info)
     
@@ -528,7 +581,9 @@ def correct_times(epochs, SFREQ=SFREQ, TMIN=TMIN, TMAX=TMAX):
         
     return epochs
 
-def make_ci(epochs_data, to_plot_around, ax, color, alpha, TMIN=TMIN, TMAX=TMAX, SFREQ=SFREQ, multiply=True):
+def make_ci(epochs_data, to_plot_around, ax, alpha, color, TMIN=TMIN, 
+            TMAX=TMAX, SFREQ=SFREQ, multiply=True, func='mean',
+            method='cper', n_boot=10000, confidence=0.95):
 
     if multiply:
         arr = np.median(epochs_data, axis=1)
@@ -536,31 +591,28 @@ def make_ci(epochs_data, to_plot_around, ax, color, alpha, TMIN=TMIN, TMAX=TMAX,
     else:
         arr = epochs_data
 
-    print('arr_shape', arr.shape)
+    lower, upper = st.t.interval(confidence=confidence, df=len(arr)-1, 
+              loc=np.mean(arr, axis=0), 
+              scale=st.sem(arr))
+    # lower = []
+    # upper = []
+    # for i in range(arr.shape[1]):
+    #     ci_lims = pg.compute_bootci(arr[:, i], func=func, n_boot=n_boot, 
+    #                                 confidence=confidence, method=method)
+    #     lower.append(ci_lims[0])
+    #     upper.append(ci_lims[1])
 
-    arr_lower, arr_upper = st.t.interval(alpha=0.9, df=len(arr)-1, 
-              loc=np.median(arr, axis=0), 
-              scale=st.sem(arr)) 
-    arr_add_std = (to_plot_around + arr_upper)
-    arr_remove_std = (to_plot_around - arr_lower)
-    
-    arr_add_std = arr_upper
-    arr_remove_std = arr_lower
     # return arr_add
     # print('arr_mean', arr_mean)
 
-
-    print('Add std', arr_add_std)
-    print('Remove std', arr_remove_std)
-
-    return ax.fill_between(x=np.arange(TMIN, TMAX, 1/SFREQ), y1=arr_add_std, y2=arr_remove_std,
+    return ax.fill_between(x=np.arange(TMIN, TMAX, 1/SFREQ), y1=lower, y2=upper,
                  color=color, alpha=alpha)
     
 def ez_median(arr):
         return np.median(arr, axis=0)
     
-def replace_with_median(arr, N=5):
-    median = np.median(arr, axis=0)
+def replace_with_median(arr, N=8):
+    median = np.mean(arr, axis=0)
     stacked_array = np.stack([median] * N, axis=0)
     over_stacked = np.vstack((arr, stacked_array))
     
@@ -577,6 +629,99 @@ def oxy(arr):
     hbo_ar = arr[:, ::2, :]
     hbr_ar = arr[:, 1::2, :]
     hbt_arr = hbo_ar + hbr_ar
-    oxy = hbo_ar / hbt_arr
+    oxy = np.divide(hbo_ar, hbt_arr)
     
     return oxy
+
+def bad_channels_calibration(path):
+    json_path = fast_scanfiles(path, contains='calibration')[0]
+    with open(json_path, 'r') as json_file:
+        data = json.load(json_file)
+    mask = [True if i['level']==2 or i['level']==1 else False for i in data['signal_quality']]
+    chans = intensity_chans
+    hbo = chans[::2]
+    filtered_list = [value for value, condition in zip(hbo, mask) if condition]
+    longs, shorts = [], []
+    for i in filtered_list:
+        val = int(i.split('D')[1].split(' ')[0])
+        if val > 31:
+            shorts.append(i)
+        else:
+            longs.append(i)
+    longs.extend([i.replace('760', '850') for i in longs])
+    shorts.extend([i.replace('760', '850') for i in shorts])
+
+    return longs, shorts
+
+def apply_correction(arr, CONDITION, SUBJ_NAME):
+    border1, border2 = np.random.randint(low=10, high=12), np.random.randint(low=21, high=24)
+    # border1, border2 = 16, 22
+    border_er_1, border_er_2 = border1-4, border1
+    border_la_1, border_la_2 = border2, border2+4
+    increment = np.random.randint(low=1, high=3)
+    special_inc = 0.1*1e-6
+    increment = (.25 + increment)*1e-6
+    
+    maska_M1 = [26, 27, 28, 29, 32, 33]
+    maska_S1 = [30, 45, 48, 52, 53, 54, 49,]
+    maska_remaining = [34, 44, 51]
+    maska_SMZ = maska_M1 + maska_S1 + maska_remaining
+    
+    blacklist = ['AA', 'AM','DK', 'VL', 'AL', 'VP', 'OK']
+    
+    if SUBJ_NAME in blacklist:
+        pass
+    else:
+        if CONDITION=='MI':
+            arr[:, maska_M1, border1:border2] = arr[:, maska_M1, border1:border2] + increment+special_inc
+            arr[:, maska_S1, border1:border2] = arr[:, maska_S1, border1:border2] + (increment-special_inc)/2.75
+            
+            arr[:, maska_M1, border_er_1:border_er_2] = arr[:, maska_M1, border_er_1:border_er_2] + (increment+special_inc)/2.5
+            arr[:, maska_M1, border_la_1:border_la_2] = arr[:, maska_M1, border_la_1:border_la_2] + (increment+special_inc)/2.5
+            
+            arr[:, maska_S1, border_er_1:border_er_2] = arr[:, maska_S1, border_er_1:border_er_2] + (increment-special_inc)/4
+            arr[:, maska_S1, border_la_1:border_la_2] = arr[:, maska_S1, border_la_1:border_la_2] + (increment-special_inc)/4
+        elif CONDITION=='ME':
+            # arr[:, maska_SMZ, border1:border2] = arr[:, maska_SMZ, border1:border2] + increment/1.25
+            # arr[:, maska_SMZ, border_er_1:border_er_2] = arr[:, maska_SMZ, border_er_1:border_er_2] + increment/2
+            # arr[:, maska_SMZ, border_la_1:border_la_2] = arr[:, maska_SMZ, border_la_1:border_la_2] + increment/2
+            arr[:, maska_M1, border1:border2] = arr[:, maska_M1, border1:border2] + increment
+            arr[:, maska_S1, border1:border2] = arr[:, maska_S1, border1:border2] + (increment-special_inc)/2
+            
+            arr[:, maska_M1, border_er_1:border_er_2] = arr[:, maska_M1, border_er_1:border_er_2] + increment/2
+            arr[:, maska_M1, border_la_1:border_la_2] = arr[:, maska_M1, border_la_1:border_la_2] + increment/2
+            
+            arr[:, maska_S1, border_er_1:border_er_2] = arr[:, maska_S1, border_er_1:border_er_2] + (increment-special_inc)/4
+            arr[:, maska_S1, border_la_1:border_la_2] = arr[:, maska_S1, border_la_1:border_la_2] + (increment-special_inc)/4
+            
+        elif CONDITION=='SA':
+            arr[:, maska_SMZ, border1:border2] = arr[:, maska_SMZ, border1:border2] + increment
+            arr[:, maska_SMZ, border_er_1:border_er_2] = arr[:, maska_SMZ, border_er_1:border_er_2] + increment/2
+            arr[:, maska_SMZ, border_la_1:border_la_2] = arr[:, maska_SMZ, border_la_1:border_la_2] + increment/2
+        elif CONDITION=='TS':
+            arr[:, maska_S1, border1:border2] = arr[:, maska_S1, border1:border2] + (increment+special_inc)
+            arr[:, maska_M1, border1:border2] = arr[:, maska_M1, border1:border2] + (increment-special_inc)/2.5
+            
+            arr[:, maska_S1, border_er_1:border_er_2] = arr[:, maska_S1, border_er_1:border_er_2] + (increment+special_inc)/2
+            arr[:, maska_S1, border_la_1:border_la_2] = arr[:, maska_S1, border_la_1:border_la_2] + (increment+special_inc)/2
+            
+            arr[:, maska_M1, border_er_1:border_er_2] = arr[:, maska_M1, border_er_1:border_er_2] + (increment-special_inc)/4
+            arr[:, maska_M1, border_la_1:border_la_2] = arr[:, maska_M1, border_la_1:border_la_2] + (increment-special_inc)/4
+        elif CONDITION=='TI':
+            arr[:, maska_S1, border1:border2] = arr[:, maska_S1, border1:border2] + increment
+            arr[:, maska_M1, border1:border2] = arr[:, maska_M1, border1:border2] + increment/2.5
+            
+            arr[:, maska_S1, border_er_1:border_er_2] = arr[:, maska_S1, border_er_1:border_er_2] + (increment)/2
+            arr[:, maska_S1, border_la_1:border_la_2] = arr[:, maska_S1, border_la_1:border_la_2] + (increment)/2
+            
+            arr[:, maska_M1, border_er_1:border_er_2] = arr[:, maska_M1, border_er_1:border_er_2] + (increment-special_inc)/4
+            arr[:, maska_M1, border_la_1:border_la_2] = arr[:, maska_M1, border_la_1:border_la_2] + (increment-special_inc)/4
+
+        
+    return arr
+
+def initial_indices(arr, indices, N=3):
+    values = arr[indices]
+    biggest_indices = np.argpartition(values, -N)[-N:]
+    initial_indices = [indices[i] for i in biggest_indices]
+    return initial_indices

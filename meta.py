@@ -35,47 +35,50 @@ curves_hb = 'hbo'
 
 #DEFINE PATHNAMES FOR DIRECTORIES
 # DIRS_TO_SAVE_STUFF = dict( 
-#                           epochs_folder = r"../fnirs_infos/epochs",
+#                           epochs_folder = r"../hbt_pics/epochs",
                           
-#                             haemo_folder_path = r"../fnirs_infos/haemodynamics",
-#                             haemo_folder_path_np = r"../fnirs_infos/haemodynamics_np",
+#                             haemo_folder_path = r"../hbt_pics/haemodynamics",
+#                             haemo_folder_SMA_path = r"../hbt_pics/haemodynamics_SMA",
+#                             haemo_folder_path_np = r"../hbt_pics/haemodynamics_np",
                             
-#                             relation_path = r"../fnirs_infos/relation",
-#                             relation_path_np = r"../fnirs_infos/relation_np",
+#                             relation_path = r"../hbt_pics/relation",
+#                             relation_SMA_path = r"../hbt_pics/relation_SMA",
+#                             relation_path_np = r"../hbt_pics/relation_np",
                             
-#                             topo_path = r"../fnirs_infos/topomaps",
-#                             topo_path_np = r"../fnirs_infos/topomaps_np",
+#                             topo_path = r"../hbt_pics/topomaps",
+#                             topo_path_np = r"../hbt_pics/topomaps_np",
                             
-#                             evokeds_ = r'../fnirs_infos/evokeds_np',
-#                             evokeds_rel = r'../fnirs_infos/evokeds_rel_np',
+#                             evokeds_ = r'../hbt_pics/evokeds_np',
+#                             evokeds_rel = r'../hbt_pics/evokeds_rel_np',
                             
-#                             topo_rel_path = r"../fnirs_infos/topomaps_rel",
-#                             topo_rel_path_np = r"../fnirs_infos/topomaps_rel_np",
+#                             topo_rel_path = r"../hbt_pics/topomaps_rel",
+#                             topo_rel_path_np = r"../hbt_pics/topomaps_rel_np",
                             
-#                             all_epochs = r'../fnirs_infos/all_epochs'
+#                             all_epochs = r'../hbt_pics/all_epochs'
 # )
 
+
 DIRS_TO_SAVE_STUFF = dict( 
-                          epochs_folder = r"../fnirs_pics/epochs",
+                          epochs_folder = r"../hbo_pics/epochs",
                           
-                            haemo_folder_path = r"../fnirs_pics/haemodynamics",
-                            haemo_folder_SMA_path = r"../fnirs_pics/haemodynamics_SMA",
-                            haemo_folder_path_np = r"../fnirs_pics/haemodynamics_np",
+                            haemo_folder_path = r"../hbo_pics/haemodynamics",
+                            haemo_folder_SMA_path = r"../hbo_pics/haemodynamics_SMA",
+                            haemo_folder_path_np = r"../hbo_pics/haemodynamics_np",
                             
-                            relation_path = r"../fnirs_pics/relation",
-                            relation_SMA_path = r"../fnirs_pics/relation_SMA",
-                            relation_path_np = r"../fnirs_pics/relation_np",
+                            relation_path = r"../hbo_pics/relation",
+                            relation_SMA_path = r"../hbo_pics/relation_SMA",
+                            relation_path_np = r"../hbo_pics/relation_np",
                             
-                            topo_path = r"../fnirs_pics/topomaps",
-                            topo_path_np = r"../fnirs_pics/topomaps_np",
+                            topo_path = r"../hbo_pics/topomaps",
+                            topo_path_np = r"../hbo_pics/topomaps_np",
                             
-                            evokeds_ = r'../fnirs_pics/evokeds_np',
-                            evokeds_rel = r'../fnirs_pics/evokeds_rel_np',
+                            evokeds_ = r'../hbo_pics/evokeds_np',
+                            evokeds_rel = r'../hbo_pics/evokeds_rel_np',
                             
-                            topo_rel_path = r"../fnirs_pics/topomaps_rel",
-                            topo_rel_path_np = r"../fnirs_pics/topomaps_rel_np",
+                            topo_rel_path = r"../hbo_pics/topomaps_rel",
+                            topo_rel_path_np = r"../hbo_pics/topomaps_rel_np",
                             
-                            all_epochs = r'../fnirs_pics/all_epochs'
+                            all_epochs = r'../hbo_pics/all_epochs'
 )
 
 
@@ -106,3 +109,11 @@ DROP_CHANS = [
 #  'S32_D31 850'
  ]
 
+
+target_chans = ([-0.04930527091026306, 0.023039783409330994],
+                    [0.04507893744856119, 0.02398763585370034],
+                    [-0.0012414913401007652, 0.023633225545287132])
+sphere=(0.0, 0.03, 0.0, 0.095)
+
+ids_of_subjs = ['AA', 'AB', 'AL', 'AM', 'DK', 'DT', 'EI', 'ET', 'GF', 'IM', 
+                'IV', 'LJ', 'MK', 'MM', 'NB', 'NS', 'OK', 'OP', 'VL', 'VP']
